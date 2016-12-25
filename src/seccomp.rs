@@ -1,6 +1,5 @@
-use bpf;
-
 use libc::*;
+use syscalls::Syscall;
 
 const PR_GET_SECCOMP: c_int = 21;
 const PR_SET_SECCOMP: c_int = 22;
@@ -37,7 +36,7 @@ struct sock_fprog {
     filter: *mut sock_filter,
 }
 
-pub fn install_filter(filter: bpf::Filter) -> Result<(), &'static str> {
+pub fn install_filter(filter: &[Syscall]) -> Result<(), &'static str> {
     let mut filter = vec![sock_filter { code: 0x06, jt: 0, jf: 0, k: 0 }];
     unsafe {
         let prog = sock_fprog { len: filter.len() as c_ushort, filter: filter[..].as_mut_ptr() };

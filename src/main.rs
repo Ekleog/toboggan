@@ -1,7 +1,9 @@
 extern crate libc;
 
-mod bpf;
 mod seccomp;
+mod syscalls;
+
+use syscalls::Syscall;
 
 fn main() {
     println!("====================================");
@@ -16,7 +18,7 @@ fn main() {
 
     println!("all good");
 
-    if let Err(e) = seccomp::install_filter(bpf::Filter { }) {
+    if let Err(e) = seccomp::install_filter(&[Syscall::write]) {
         panic!("unable to install seccomp filter: {}", e);
     }
 
