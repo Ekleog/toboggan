@@ -22,6 +22,8 @@ fn main() {
         panic!("unable to install seccomp filter: {}", e);
     }
 
+    println!("Should manage to write this");
+
     unsafe { libc::fork(); }
     unreachable!();
 }

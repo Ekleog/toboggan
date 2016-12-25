@@ -1,5 +1,6 @@
 // TODO: Remove dead_code
 #[allow(dead_code, non_camel_case_types)]
+#[derive(Clone, Copy)]
 pub enum Syscall {
     read = 0,
     write = 1,
