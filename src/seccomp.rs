@@ -23,24 +23,24 @@ pub fn has_seccomp_filter() -> bool {
     }
 }
 
-#[allow(dead_code)]
-struct SockFilter {
+#[allow(dead_code, non_camel_case_types)]
+struct sock_filter {
     code: u16,
     jt: u8,
     jf: u8,
     k: u32,
 }
 
-#[allow(dead_code)]
-struct SockFprog {
+#[allow(dead_code, non_camel_case_types)]
+struct sock_fprog {
     len: c_ushort,
-    filter: *mut SockFilter,
+    filter: *mut sock_filter,
 }
 
 pub fn install_filter(filter: bpf::Filter) -> Result<(), &'static str> {
-    let mut filter = vec![SockFilter { code: 0x06, jt: 0, jf: 0, k: 0 }];
+    let mut filter = vec![sock_filter { code: 0x06, jt: 0, jf: 0, k: 0 }];
     unsafe {
-        let prog = SockFprog { len: 1, filter: filter[..].as_mut_ptr() };
+        let prog = sock_fprog { len: 1, filter: filter[..].as_mut_ptr() };
         if prctl(PR_SET_NO_NEW_PRIVS, 1) != 0 {
             Err("prctl(PR_SET_NO_NEW_PRIVS)")
         } else if prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) != 0 {
