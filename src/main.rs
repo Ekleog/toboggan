@@ -21,5 +21,5 @@ fn main() {
     }
 
     unsafe { libc::fork(); }
-    println!("should not reach here!");
+    unreachable!();
 }
