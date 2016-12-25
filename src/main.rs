@@ -1,5 +1,6 @@
 extern crate libc;
 
+mod bpf;
 mod seccomp;
 
 fn main() {
@@ -14,4 +15,11 @@ fn main() {
     }
 
     println!("all good");
+
+    if let Err(e) = seccomp::install_filter(bpf::Filter { }) {
+        panic!("unable to install seccomp filter: {}", e);
+    }
+
+    unsafe { libc::fork(); }
+    println!("should not reach here!");
 }
