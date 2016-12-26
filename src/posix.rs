@@ -42,6 +42,7 @@ fn waitforcont() {
     let set = usr1set();
     unsafe {
         let mut sig: c_int = mem::uninitialized();
+        blockusr1(); // This should already have been done, but safe function...
         sigwait(&set, &mut sig);
     }
 }
@@ -60,5 +61,6 @@ pub fn ptraceme() {
 }
 
 pub fn ptracehim(pid: pid_t) {
+    // TODO: actually ptrace him
     sendcont(pid);
 }
