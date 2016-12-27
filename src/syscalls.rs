@@ -330,7 +330,7 @@ pub enum Syscall {
     mlock2 = 325,
 }
 
-pub const syscalls: &'static [&'static str] = &[
+pub const SYSCALLS: &'static [&'static str] = &[
     "read",
     "write",
     "open",
