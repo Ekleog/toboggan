@@ -5,7 +5,7 @@ mod seccomp;
 mod syscalls;
 
 use posix::Action;
-use syscalls::{Syscall, SYSCALLS};
+use syscalls::{Syscall};
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
@@ -24,7 +24,7 @@ fn spawn_child(sigset: libc::sigset_t) {
 
 fn ptrace_child(pid: libc::pid_t) {
     posix::ptracehim(pid, |s| {
-        println!("Syscall {}\t({}, {}, {}, {}, {}, {})", SYSCALLS[s.syscall as usize], s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
+        println!("Syscall {:?}\t({}, {}, {}, {}, {}, {})", syscalls::from(s.syscall), s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
         if s.syscall == Syscall::getdents as u64 {
             Action::Kill
         } else {
