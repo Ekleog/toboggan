@@ -64,6 +64,13 @@ fn sendcont(pid: pid_t) {
     }
 }
 
+fn killit(pid: pid_t) {
+    unsafe {
+        kill(pid, SIGSYS);
+        kill(pid, SIGKILL); // In case the first one was blocked
+    }
+}
+
 pub fn ptraceme() {
     waitforcont();
 }
@@ -108,7 +115,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
             let syscall = syscall_number(pid);
             match cb(syscall) {
                 Action::Allow => (),
-                Action::Kill => panic!("TODO: Kill the process"),
+                Action::Kill => killit(pid),
             }
         } else if is_exit(status) {
             // Process just exited
@@ -141,6 +148,7 @@ fn is_seccomp(status: c_int) -> bool {
 
 fn is_exit(status: c_int) -> bool {
     status & 0x7f == 0
+        || (((status & 0x7f) + 1) as i8 >> 1) > 0
 }
 
 fn is_exec(status: c_int) -> bool {
