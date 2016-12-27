@@ -1,9 +1,11 @@
 extern crate libc;
 
+mod filter;
 mod posix;
 mod seccomp;
 mod syscalls;
 
+use filter::Filter;
 use posix::Action;
 use syscalls::{Syscall};
 
@@ -23,15 +25,21 @@ fn spawn_child(sigset: libc::sigset_t) {
 }
 
 fn ptrace_child(pid: libc::pid_t) {
+    // TODO: Allow filtering on syscall
+
+    let filter: Filter =
+        Filter::Log(
+            Box::new(Filter::PathIn(String::from("/nix/store"),
+                Box::new(Filter::Kill),
+                Box::new(Filter::Allow)
+            ))
+        );
+
     posix::ptracehim(pid, |s| {
-        if s.syscall == Syscall::open {
-            println!("open({:?}, ...)", posix::read_str(pid, s.args[0], 4096));
-        }
-        println!("Syscall {:?}\t({}, {}, {}, {}, {}, {})", s.syscall, s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
         if s.syscall == Syscall::getdents {
             Action::Kill
         } else {
-            Action::Allow
+            filter::eval(&filter, &s)
         }
     });
 }
