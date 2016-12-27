@@ -18,16 +18,14 @@ fn spawn_child(sigset: libc::sigset_t) {
         panic!("unable to install seccomp filter: {}", e);
     }
 
-    println!("about to spawn ls!");
-
     posix::exec("ls", &["ls"]);
     unreachable!();
 }
 
 fn ptrace_child(pid: libc::pid_t) {
     posix::ptracehim(pid, |s| {
-        println!("Syscall {}", SYSCALLS[s as usize]);
-        if s == Syscall::getdents as i64 {
+        println!("Syscall {}\t({}, {}, {}, {}, {}, {})", SYSCALLS[s.syscall as usize], s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
+        if s.syscall == Syscall::getdents as u64 {
             Action::Kill
         } else {
             Action::Allow

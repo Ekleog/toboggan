@@ -3,7 +3,6 @@ use libc::*;
 
 const PTRACE_EVENT_EXEC: c_int = 4;
 const PTRACE_EVENT_SECCOMP: c_int = 7;
-const ORIG_RAX: c_int = 120;
 
 pub fn exec(prog: &str, argv: &[&str]) {
     let prog = ffi::CString::new(prog).unwrap();
@@ -116,7 +115,7 @@ fn stop_type(status: c_int) -> PtraceStop {
     }
 }
 
-pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
+pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
     if unsafe { ptrace(PTRACE_ATTACH, pid, 0, 0) } != 0 {
         panic!("unable to ptrace child!");
     }
@@ -129,14 +128,12 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
     continueit(pid);
     sendcont(pid);
 
-    println!("Entering infinite loop");
     loop {
         // TODO: manage multiprocess
         let status = waitit();
         match status {
             PtraceStop::Seccomp => {
-                let syscall = syscall_number(pid);
-                match cb(syscall) {
+                match cb(syscall_info(pid)) {
                     Action::Allow => (),
                     Action::Kill => killit(pid),
                 }
@@ -154,13 +151,52 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
     }
 }
 
-fn syscall_number(pid: pid_t) -> i64 {
+pub struct SyscallInfo {
+    pub syscall: u64,
+    pub args: [u64; 6],
+}
+
+#[repr(C)]
+struct user_regs {
+    r15: u64,
+    r14: u64,
+    r13: u64,
+    r12: u64,
+    rbp: u64,
+    rbx: u64,
+    r11: u64,
+    r10: u64,
+    r9: u64,
+    r8: u64,
+    rax: u64,
+    rcx: u64,
+    rdx: u64,
+    rsi: u64,
+    rdi: u64,
+    orig_rax: u64,
+    rip: u64,
+    cs: u64,
+    eflags: u64,
+    rsp: u64,
+    ss: u64,
+    fs_base: u64,
+    gs_base: u64,
+    ds: u64,
+    es: u64,
+    fs: u64,
+    gs: u64,
+}
+
+fn syscall_info(pid: pid_t) -> SyscallInfo {
+    let mut regs: user_regs;
     unsafe {
-        *__errno_location() = 0;
-        let res = ptrace(PTRACE_PEEKUSER, pid, ORIG_RAX, 0);
-        if *__errno_location() != 0 {
-            panic!("Unable to peekuser: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
+        regs = mem::uninitialized();
+        if ptrace(PTRACE_GETREGS, pid, 0, &mut regs) != 0 {
+            panic!("Unable to getregs: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
         }
-        res
+    }
+    SyscallInfo {
+        syscall: regs.orig_rax,
+        args: [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
     }
 }
