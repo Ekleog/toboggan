@@ -2,6 +2,7 @@ use std::{ffi, mem, str};
 use libc::*;
 
 use syscalls;
+use syscalls::Syscall;
 
 const PTRACE_EVENT_EXEC: c_int = 4;
 const PTRACE_EVENT_SECCOMP: c_int = 7;
@@ -158,8 +159,23 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
 }
 
 pub struct SyscallInfo {
-    pub syscall: syscalls::Syscall,
+    pub syscall: Syscall,
     pub args: [u64; 6],
+    pub path: String,
+}
+
+impl SyscallInfo {
+    fn new(pid: pid_t, syscall: Syscall, args: [u64; 6]) -> SyscallInfo {
+        let path = String::new();
+        match syscall {
+            _ => (),
+        }
+        SyscallInfo {
+            syscall: syscall,
+            args: args,
+            path: path,
+        }
+    }
 }
 
 #[repr(C)]
@@ -202,10 +218,11 @@ fn syscall_info(pid: pid_t) -> Option<SyscallInfo> {
         }
     }
     if let Some(sysc) = syscalls::from(regs.orig_rax) {
-        Some(SyscallInfo {
-            syscall: sysc,
-            args: [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
-        })
+        Some(SyscallInfo::new(
+            pid,
+            sysc,
+            [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
+        ))
     } else {
         None
     }
