@@ -68,7 +68,7 @@ pub fn ptraceme() {
     waitforcont();
 }
 
-pub fn waitit() -> c_int {
+fn waitit() -> c_int {
     unsafe {
         let mut status: c_int = mem::uninitialized();
         wait(&mut status);
@@ -76,7 +76,7 @@ pub fn waitit() -> c_int {
     }
 }
 
-pub fn continueit(pid: pid_t) {
+fn continueit(pid: pid_t) {
     unsafe {
         ptrace(PTRACE_CONT, pid, 0, 0);
     }
