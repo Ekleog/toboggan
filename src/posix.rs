@@ -7,8 +7,6 @@ use syscalls::Syscall;
 const PTRACE_EVENT_EXEC: c_int = 4;
 const PTRACE_EVENT_SECCOMP: c_int = 7;
 
-const MAX_LEN: usize = 4096;
-
 pub fn exec(prog: &str, argv: &[&str]) {
     let prog = ffi::CString::new(prog).unwrap();
     let mut args: Vec<*const c_char> = Vec::new();
@@ -169,29 +167,29 @@ pub struct SyscallInfo {
 impl SyscallInfo {
     fn new(pid: pid_t, syscall: Syscall, args: [u64; 6]) -> Result<SyscallInfo, PosixError> {
         let path = match syscall {
-            Syscall::open     => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::creat    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::unlink   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::execve   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::chdir    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::mknod    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::chmod    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::lchown   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::stat     => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::access   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::mkdir    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::rmdir    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::mount    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::chroot   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::lstat    => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::readlink => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::uselib   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::swapon   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::truncate => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::statfs   => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::swapoff  => read_str(pid, args[0], MAX_LEN)?,
-            Syscall::quotactl => read_str(pid, args[1], MAX_LEN)?,
-            Syscall::chown    => read_str(pid, args[1], MAX_LEN)?,
+            Syscall::open     => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::creat    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::unlink   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::execve   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::chdir    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::mknod    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::chmod    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::lchown   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::stat     => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::access   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::mkdir    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::rmdir    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::mount    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::chroot   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::lstat    => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::readlink => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::uselib   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::swapon   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::truncate => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::statfs   => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::swapoff  => read_str(pid, args[0], PATH_MAX as usize)?,
+            Syscall::quotactl => read_str(pid, args[1], PATH_MAX as usize)?,
+            Syscall::chown    => read_str(pid, args[1], PATH_MAX as usize)?,
             _                 => String::new(),
         };
         // TODO: set path to realpath(path)
