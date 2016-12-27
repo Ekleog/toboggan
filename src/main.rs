@@ -4,6 +4,7 @@ mod posix;
 mod seccomp;
 mod syscalls;
 
+use posix::Action;
 use syscalls::{Syscall, syscalls};
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
@@ -25,25 +26,14 @@ fn spawn_child(sigset: libc::sigset_t) {
 }
 
 fn ptrace_child(pid: libc::pid_t) {
-    posix::ptracehim(pid);
-
-    println!("Entering infinite loop");
-    loop {
-        // TODO: manage multiprocess
-        let status = posix::waitit();
-        if posix::is_seccomp(status) {
-            let syscall = posix::syscall_number(pid);
-            println!("Syscall {}", syscalls[syscall as usize]);
-        } else if posix::is_exit(status) {
-            println!("Exit!");
-            break
-        } else if posix::is_exec(status) {
-            println!("Exec!");
+    posix::ptracehim(pid, |s| {
+        println!("Syscall {}", syscalls[s as usize]);
+        if s == Syscall::getdents as i64 {
+            Action::Kill
         } else {
-            println!("Out of waitit with unknown status 0x{:08x}", status);
+            Action::Allow
         }
-        posix::continueit(pid);
-    }
+    });
 }
 
 fn main() {

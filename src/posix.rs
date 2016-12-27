@@ -79,21 +79,49 @@ pub fn continueit(pid: pid_t) {
     }
 }
 
-pub fn ptracehim(pid: pid_t) {
+pub enum Action {
+    Allow,
+    Kill,
+}
+
+pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
     if unsafe { ptrace(PTRACE_ATTACH, pid, 0, 0) } != 0 {
         panic!("unable to ptrace child!");
     }
     waitit(); // Wait for the process to receive the SIGSTOP
     // TODO: Make sure forks are ptraced
-    let options = PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEEXEC;
+    let options = PTRACE_O_EXITKILL | PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEEXEC;
     if unsafe { ptrace(PTRACE_SETOPTIONS, pid, 0, options) } != 0 {
         panic!("unable to trace seccomp on child: {}", unsafe { *__errno_location() });
     }
     continueit(pid);
     sendcont(pid);
+
+    println!("Entering infinite loop");
+    loop {
+        // TODO: manage multiprocess
+        let status = waitit();
+        if is_seccomp(status) {
+            let syscall = syscall_number(pid);
+            match cb(syscall) {
+                Action::Allow => (),
+                Action::Kill => panic!("TODO: Kill the process"),
+            }
+        } else if is_exit(status) {
+            // Process just exited
+            break
+        } else if is_exec(status) {
+            // Do nothing
+            // TODO: is this really a good idea? what exactly is this stop supposed to be used for?
+        } else {
+            // TODO: do not panic in release builds
+            panic!("Out of waitit with unknown status 0x{:08x}", status);
+        }
+        continueit(pid);
+    }
 }
 
-pub fn syscall_number(pid: pid_t) -> i64 {
+fn syscall_number(pid: pid_t) -> i64 {
     unsafe {
         let old_errno = *__errno_location();
         *__errno_location() = 0;
@@ -106,14 +134,14 @@ pub fn syscall_number(pid: pid_t) -> i64 {
     }
 }
 
-pub fn is_seccomp(status: c_int) -> bool {
+fn is_seccomp(status: c_int) -> bool {
     status >> 8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))
 }
 
-pub fn is_exit(status: c_int) -> bool {
+fn is_exit(status: c_int) -> bool {
     status & 0x7f == 0
 }
 
-pub fn is_exec(status: c_int) -> bool {
+fn is_exec(status: c_int) -> bool {
     status >> 8 == (SIGTRAP | (PTRACE_EVENT_EXEC << 8))
 }
