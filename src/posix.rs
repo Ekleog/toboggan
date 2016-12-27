@@ -1,4 +1,4 @@
-use std::{ffi, mem, str};
+use std::{ffi, fs, mem, path, str};
 use libc::*;
 
 use syscalls;
@@ -164,6 +164,29 @@ pub struct SyscallInfo {
     pub path: String,
 }
 
+fn canonicalize(p: String) -> path::PathBuf {
+    let mut path = path::PathBuf::new();
+    path.push(p);
+
+    let mut append = path::PathBuf::new();
+    loop {
+        if let Ok(res) = fs::canonicalize(&path) {
+            let mut tmp = res;
+            tmp.push(append);
+            return tmp;
+        }
+        if let Some(file) = path.clone().file_name() {
+            let mut tmp = path::PathBuf::new();
+            tmp.push(file);
+            tmp.push(append);
+            append = tmp;
+            path.pop();
+        } else {
+            return path::PathBuf::new();
+        }
+    }
+}
+
 impl SyscallInfo {
     fn new(pid: pid_t, syscall: Syscall, args: [u64; 6]) -> Result<SyscallInfo, PosixError> {
         let path = match syscall {
@@ -192,12 +215,15 @@ impl SyscallInfo {
             Syscall::chown    => read_str(pid, args[1], PATH_MAX as usize)?,
             _                 => String::new(),
         };
-        // TODO: set path to realpath(path)
-        Ok(SyscallInfo {
-            syscall: syscall,
-            args: args,
-            path: path,
-        })
+        match canonicalize(path).into_os_string().into_string() {
+            Ok(path) =>
+                Ok(SyscallInfo {
+                    syscall: syscall,
+                    args: args,
+                    path: path,
+                }),
+            Err(path) => Err(PosixError::InvalidUtf8(path)),
+        }
     }
 }
 
@@ -238,6 +264,7 @@ pub enum PosixError {
     PTraceError(i32),
     TooLong,
     UnknownSyscall(u64),
+    InvalidUtf8(ffi::OsString),
 }
 
 impl From<str::Utf8Error> for PosixError {
