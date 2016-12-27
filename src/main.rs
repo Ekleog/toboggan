@@ -24,11 +24,11 @@ fn spawn_child(sigset: libc::sigset_t) {
 
 fn ptrace_child(pid: libc::pid_t) {
     posix::ptracehim(pid, |s| {
-        if s.syscall == Syscall::open as u64 {
+        if s.syscall == Syscall::open {
             println!("open({:?}, ...)", posix::read_str(pid, s.args[0], 4096));
         }
-        println!("Syscall {:?}\t({}, {}, {}, {}, {}, {})", syscalls::from(s.syscall), s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
-        if s.syscall == Syscall::getdents as u64 {
+        println!("Syscall {:?}\t({}, {}, {}, {}, {}, {})", s.syscall, s.args[0], s.args[1], s.args[2], s.args[3], s.args[4], s.args[5]);
+        if s.syscall == Syscall::getdents {
             Action::Kill
         } else {
             Action::Allow

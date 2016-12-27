@@ -11,7 +11,7 @@ exec > src/syscalls.rs
 
 echo "// TODO: Remove dead_code"
 echo "#[allow(dead_code, non_camel_case_types)]"
-echo "#[derive(Clone, Copy, Debug)]"
+echo "#[derive(PartialEq, Eq, Clone, Copy, Debug)]"
 echo "pub enum Syscall {"
 echo "$syscalls" | awk '{ print "    " $1 " = " $2 "," }'
 echo "}"
