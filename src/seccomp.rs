@@ -36,6 +36,7 @@ pub fn has_seccomp_filter() -> bool {
 }
 
 #[allow(dead_code, non_camel_case_types)]
+#[repr(C)]
 struct sock_filter {
     code: u16,
     jt: u8,
@@ -44,6 +45,7 @@ struct sock_filter {
 }
 
 #[allow(dead_code, non_camel_case_types)]
+#[repr(C)]
 struct sock_fprog {
     len: c_ushort,
     filter: *mut sock_filter,
