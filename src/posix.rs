@@ -9,11 +9,9 @@ pub fn exec(prog: &str, argv: &[&str]) {
     let prog = ffi::CString::new(prog).unwrap();
     let mut args: Vec<*const c_char> = Vec::new();
     for arg in argv {
-        println!("pushing '{}'", arg);
-        args.push(ffi::CString::new(arg.clone()).unwrap().as_ptr());
+        args.push(ffi::CString::new(arg.clone()).unwrap().into_raw());
     }
     args.push(0 as *const c_char);
-    println!("args: {:?}", args);
     // TODO: allow to block environment passing?
     unsafe {
         execvp(prog.as_ptr(), args.as_ptr());
