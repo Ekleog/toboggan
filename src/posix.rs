@@ -7,6 +7,8 @@ use syscalls::Syscall;
 const PTRACE_EVENT_EXEC: c_int = 4;
 const PTRACE_EVENT_SECCOMP: c_int = 7;
 
+const MAX_LEN: usize = 4096;
+
 pub fn exec(prog: &str, argv: &[&str]) {
     let prog = ffi::CString::new(prog).unwrap();
     let mut args: Vec<*const c_char> = Vec::new();
@@ -165,16 +167,39 @@ pub struct SyscallInfo {
 }
 
 impl SyscallInfo {
-    fn new(pid: pid_t, syscall: Syscall, args: [u64; 6]) -> SyscallInfo {
-        let path = String::new();
-        match syscall {
-            _ => (),
-        }
-        SyscallInfo {
+    fn new(pid: pid_t, syscall: Syscall, args: [u64; 6]) -> Result<SyscallInfo, PosixError> {
+        let path = match syscall {
+            Syscall::open     => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::creat    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::unlink   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::execve   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::chdir    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::mknod    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::chmod    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::lchown   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::stat     => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::access   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::mkdir    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::rmdir    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::mount    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::chroot   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::lstat    => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::readlink => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::uselib   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::swapon   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::truncate => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::statfs   => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::swapoff  => read_str(pid, args[0], MAX_LEN)?,
+            Syscall::quotactl => read_str(pid, args[1], MAX_LEN)?,
+            Syscall::chown    => read_str(pid, args[1], MAX_LEN)?,
+            _                 => String::new(),
+        };
+        // TODO: set path to realpath(path)
+        Ok(SyscallInfo {
             syscall: syscall,
             args: args,
             path: path,
-        }
+        })
     }
 }
 
@@ -232,11 +257,11 @@ fn syscall_info(pid: pid_t) -> Result<SyscallInfo, PosixError> {
         }
     }
     if let Some(sysc) = syscalls::from(regs.orig_rax) {
-        Ok(SyscallInfo::new(
+        SyscallInfo::new(
             pid,
             sysc,
             [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
-        ))
+        )
     } else {
         Err(PosixError::UnknownSyscall(regs.orig_rax))
     }

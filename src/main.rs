@@ -14,7 +14,7 @@ fn spawn_child(sigset: libc::sigset_t) {
 
     posix::setsigmask(sigset);
 
-    if let Err(e) = seccomp::install_filter(&[Syscall::write, Syscall::exit]) {
+    if let Err(e) = seccomp::install_filter(&[Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect, Syscall::close, Syscall::read, Syscall::fstat]) {
         panic!("unable to install seccomp filter: {}", e);
     }
 
