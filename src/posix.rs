@@ -136,7 +136,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
         let status = waitit();
         match status {
             PtraceStop::Seccomp => {
-                if let Some(syscall) = syscall_info(pid) {
+                if let Ok(syscall) = syscall_info(pid) {
                     match cb(syscall) {
                         Action::Allow => (),
                         Action::Kill => killit(pid),
@@ -209,7 +209,21 @@ struct user_regs {
     gs: u64,
 }
 
-fn syscall_info(pid: pid_t) -> Option<SyscallInfo> {
+#[derive(Debug)]
+pub enum PosixError {
+    Utf8Error(str::Utf8Error),
+    PTraceError(i32),
+    TooLong,
+    UnknownSyscall(u64),
+}
+
+impl From<str::Utf8Error> for PosixError {
+    fn from(err: str::Utf8Error) -> PosixError {
+        PosixError::Utf8Error(err)
+    }
+}
+
+fn syscall_info(pid: pid_t) -> Result<SyscallInfo, PosixError> {
     let mut regs: user_regs;
     unsafe {
         regs = mem::uninitialized();
@@ -218,17 +232,17 @@ fn syscall_info(pid: pid_t) -> Option<SyscallInfo> {
         }
     }
     if let Some(sysc) = syscalls::from(regs.orig_rax) {
-        Some(SyscallInfo::new(
+        Ok(SyscallInfo::new(
             pid,
             sysc,
             [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
         ))
     } else {
-        None
+        Err(PosixError::UnknownSyscall(regs.orig_rax))
     }
 }
 
-pub fn read_str(pid: pid_t, addr: u64, maxlen: usize) -> Option<String> {
+pub fn read_str(pid: pid_t, addr: u64, maxlen: usize) -> Result<String, PosixError> {
     let mut res = String::with_capacity(maxlen + 8);
     let mut tmp: i64;
     let mut buf: [u8; 8];
@@ -237,22 +251,19 @@ pub fn read_str(pid: pid_t, addr: u64, maxlen: usize) -> Option<String> {
             *__errno_location() = 0;
             tmp = ptrace(PTRACE_PEEKDATA, pid, addr + (res.len() as u64), 0);
             if *__errno_location() != 0 {
-                return None;
+                return Err(PosixError::PTraceError(*__errno_location()));
             }
             buf = mem::transmute(tmp);
         }
         let zero = buf.iter().position(|&x| x == 0);
-        let typed = str::from_utf8(&buf[0..zero.unwrap_or(buf.len())]);
-        if let Ok(s) = typed {
-            res.push_str(s);
-        }
-        if typed.is_err() || res.len() > maxlen {
-            return None;
+        res.push_str(str::from_utf8(&buf[0..zero.unwrap_or(buf.len())])?);
+        if res.len() > maxlen {
+            return Err(PosixError::TooLong);
         }
         if zero != None {
             break;
         }
     }
     res.shrink_to_fit();
-    Some(res)
+    Ok(res)
 }
