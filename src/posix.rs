@@ -1,4 +1,4 @@
-use std::{ffi, mem};
+use std::{ffi, mem, str};
 use libc::*;
 
 const PTRACE_EVENT_EXEC: c_int = 4;
@@ -199,4 +199,33 @@ fn syscall_info(pid: pid_t) -> SyscallInfo {
         syscall: regs.orig_rax,
         args: [regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9],
     }
+}
+
+pub fn read_str(pid: pid_t, addr: u64, maxlen: usize) -> Option<String> {
+    let mut res = String::with_capacity(maxlen + 8);
+    let mut tmp: i64;
+    let mut buf: [u8; 8];
+    loop {
+        unsafe {
+            *__errno_location() = 0;
+            tmp = ptrace(PTRACE_PEEKDATA, pid, addr + (res.len() as u64), 0);
+            if *__errno_location() != 0 {
+                return None;
+            }
+            buf = mem::transmute(tmp);
+        }
+        let zero = buf.iter().position(|&x| x == 0);
+        let typed = str::from_utf8(&buf[0..zero.unwrap_or(buf.len())]);
+        if let Ok(s) = typed {
+            res.push_str(s);
+        }
+        if typed.is_err() || res.len() > maxlen {
+            return None;
+        }
+        if zero != None {
+            break;
+        }
+    }
+    res.shrink_to_fit();
+    Some(res)
 }
