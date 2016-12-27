@@ -75,11 +75,11 @@ pub fn ptraceme() {
     waitforcont();
 }
 
-fn waitit() -> c_int {
+fn waitit() -> PtraceStop {
     unsafe {
         let mut status: c_int = mem::uninitialized();
         wait(&mut status);
-        status
+        stop_type(status)
     }
 }
 
@@ -92,6 +92,28 @@ fn continueit(pid: pid_t) {
 pub enum Action {
     Allow,
     Kill,
+}
+
+enum PtraceStop {
+    Exec,
+    Exit,
+    Seccomp,
+    Unknown(c_int),
+}
+
+fn stop_type(status: c_int) -> PtraceStop {
+    if status & 0x7f == 0
+    || (((status & 0x7f) + 1) as i8 >> 1) > 0 {
+        return PtraceStop::Exit
+    }
+    if (status >> 8) & 0xff != SIGTRAP {
+        return PtraceStop::Unknown(status)
+    }
+    match status >> 16 {
+        PTRACE_EVENT_SECCOMP => PtraceStop::Seccomp,
+        PTRACE_EVENT_EXEC    => PtraceStop::Exec,
+        _                    => PtraceStop::Unknown(status),
+    }
 }
 
 pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
@@ -111,21 +133,22 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
     loop {
         // TODO: manage multiprocess
         let status = waitit();
-        if is_seccomp(status) {
-            let syscall = syscall_number(pid);
-            match cb(syscall) {
-                Action::Allow => (),
-                Action::Kill => killit(pid),
+        match status {
+            PtraceStop::Seccomp => {
+                let syscall = syscall_number(pid);
+                match cb(syscall) {
+                    Action::Allow => (),
+                    Action::Kill => killit(pid),
+                }
             }
-        } else if is_exit(status) {
-            // Process just exited
-            break
-        } else if is_exec(status) {
-            // Do nothing
+
+            PtraceStop::Exit => break, // Process just exited
+
+            PtraceStop::Exec => (), // Do nothing
             // TODO: is this really a good idea? what exactly is this stop supposed to be used for?
-        } else {
+
+            PtraceStop::Unknown(s) => panic!("Out of waitit with unknown status 0x{:08x}", s),
             // TODO: do not panic in release builds
-            panic!("Out of waitit with unknown status 0x{:08x}", status);
         }
         continueit(pid);
     }
@@ -140,17 +163,4 @@ fn syscall_number(pid: pid_t) -> i64 {
         }
         res
     }
-}
-
-fn is_seccomp(status: c_int) -> bool {
-    status >> 8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))
-}
-
-fn is_exit(status: c_int) -> bool {
-    status & 0x7f == 0
-        || (((status & 0x7f) + 1) as i8 >> 1) > 0
-}
-
-fn is_exec(status: c_int) -> bool {
-    status >> 8 == (SIGTRAP | (PTRACE_EVENT_EXEC << 8))
 }
