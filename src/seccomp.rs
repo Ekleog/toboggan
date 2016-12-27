@@ -27,11 +27,8 @@ pub fn has_seccomp() -> bool {
 
 pub fn has_seccomp_filter() -> bool {
     unsafe {
-        let backup = *__errno_location();
-        let res = prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, 0, 0, 0) < 0
-            && *__errno_location() == EFAULT;
-        *__errno_location() = backup;
-        res
+        prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, 0, 0, 0) < 0
+            && *__errno_location() == EFAULT
     }
 }
 

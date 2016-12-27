@@ -21,8 +21,7 @@ fn spawn_child(sigset: libc::sigset_t) {
     println!("about to spawn ls!");
 
     posix::exec("ls", &["ls"]);
-
-    panic!("Unable to spawn ls: {}", unsafe { *libc::__errno_location() });
+    unreachable!();
 }
 
 fn ptrace_child(pid: libc::pid_t) {

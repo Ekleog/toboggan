@@ -12,10 +12,13 @@ pub fn exec(prog: &str, argv: &[&str]) {
         args.push(ffi::CString::new(arg.clone()).unwrap().into_raw());
     }
     args.push(0 as *const c_char);
+
     // TODO: allow to block environment passing?
     unsafe {
         execvp(prog.as_ptr(), args.as_ptr());
     }
+
+    panic!("Unable to exec: {}", unsafe { *__errno_location() });
 }
 
 extern {
@@ -123,13 +126,11 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(i64) -> Action {
 
 fn syscall_number(pid: pid_t) -> i64 {
     unsafe {
-        let old_errno = *__errno_location();
         *__errno_location() = 0;
         let res = ptrace(PTRACE_PEEKUSER, pid, ORIG_RAX, 0);
         if *__errno_location() != 0 {
             panic!("Unable to peekuser: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
         }
-        *__errno_location() = old_errno;
         res
     }
 }
