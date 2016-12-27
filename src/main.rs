@@ -4,7 +4,7 @@ mod posix;
 mod seccomp;
 mod syscalls;
 
-use syscalls::Syscall;
+use syscalls::{Syscall, syscalls};
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
@@ -33,7 +33,7 @@ fn ptrace_child(pid: libc::pid_t) {
         let status = posix::waitit();
         if posix::is_seccomp(status) {
             let syscall = posix::syscall_number(pid);
-            println!("Syscall with code {}", syscall);
+            println!("Syscall {}", syscalls[syscall as usize]);
         } else if posix::is_exit(status) {
             println!("Exit!");
             break
