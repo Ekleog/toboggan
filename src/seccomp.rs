@@ -12,6 +12,9 @@ const BPF_JEQ: u16 = 0x15;
 const BPF_LD: u16 = 0x20;
 
 const BPF_SYSCALL_NR: u32 = 0;
+const BPF_ARCH_NR: u32 = 4; // sizeof(c_int)
+
+const ARCH_X86_64: u32 = 62 | 0x80000000 | 0x40000000;
 
 const SECCOMP_RET_KILL: u32 = 0;
 const SECCOMP_RET_TRACE: u32 = 0x7ff00000;
@@ -48,17 +51,26 @@ struct sock_fprog {
 
 pub fn install_filter(allowed: &[Syscall], killing: &[Syscall]) -> Result<(), &'static str> {
     let mut filter = Vec::new();
-    // TODO: Validate architecture before using x86_64 syscall list
+    // Validate architecture
+    filter.push(sock_filter { code: BPF_LD, jt: 0, jf: 0, k: BPF_ARCH_NR });
+    filter.push(sock_filter { code: BPF_JEQ, jt: 1, jf: 0, k: ARCH_X86_64 });
+    filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_KILL });
+    // TODO: also handle non-x64 syscalls
+    // Load syscall
     filter.push(sock_filter { code: BPF_LD, jt: 0, jf: 0, k: BPF_SYSCALL_NR });
+    // Allow allowed
     for s in allowed {
         filter.push(sock_filter { code: BPF_JEQ, jt: 0, jf: 1, k: *s as u32 });
         filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_ALLOW });
     }
+    // Kill if need be
     for s in killing {
         filter.push(sock_filter { code: BPF_JEQ, jt: 0, jf: 1, k: *s as u32 });
         filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_KILL });
     }
+    // Go through slow path otherwise
     filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_TRACE });
+    // And load this policy
     unsafe {
         let prog = sock_fprog { len: filter.len() as c_ushort, filter: filter[..].as_mut_ptr() };
         if prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 {
