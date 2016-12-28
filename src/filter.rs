@@ -10,6 +10,7 @@ pub enum Filter {
 
     // Tools
     Log(Box<Filter>),
+    LogStr(String, Box<Filter>),
 
     // Arguments
     ArgEq(usize, u64, Box<Filter>, Box<Filter>),
@@ -41,6 +42,10 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
                 sys.syscall, sys.path,
                 sys.args[0], sys.args[1], sys.args[2], sys.args[3], sys.args[4], sys.args[5]
             );
+            eval(&*ff, sys)
+        }
+        Filter::LogStr(ref s, ref ff) => {
+            println!("toboggan: {}", s);
             eval(&*ff, sys)
         }
 

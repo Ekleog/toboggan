@@ -8,7 +8,6 @@ mod syscalls;
 use std::collections::HashMap;
 
 use filter::Filter;
-use posix::Action;
 use syscalls::Syscall;
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
@@ -37,7 +36,10 @@ fn ptrace_child(pid: libc::pid_t) {
     filter.insert(Syscall::open,
         Filter::Log(
             Box::new(Filter::PathIn(String::from("/nix/store"),
-                Box::new(Filter::Kill),
+                Box::new(Filter::LogStr(
+                    String::from("Accessing nix store!"),
+                    Box::new(Filter::Allow)
+                )),
                 Box::new(Filter::Allow)
             ))
         )
