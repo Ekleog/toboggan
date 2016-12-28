@@ -13,8 +13,6 @@ const BPF_LD: u16 = 0x20;
 
 const BPF_SYSCALL_NR: u32 = 0;
 
-// TODO: Remove dead_code
-#[allow(dead_code)]
 const SECCOMP_RET_KILL: u32 = 0;
 const SECCOMP_RET_TRACE: u32 = 0x7ff00000;
 const SECCOMP_RET_ALLOW: u32 = 0x7fff0000;
@@ -48,13 +46,17 @@ struct sock_fprog {
     filter: *mut sock_filter,
 }
 
-pub fn install_filter(syscalls: &[Syscall]) -> Result<(), &'static str> {
+pub fn install_filter(allowed: &[Syscall], killing: &[Syscall]) -> Result<(), &'static str> {
     let mut filter = Vec::new();
     // TODO: Validate architecture before using x86_64 syscall list
     filter.push(sock_filter { code: BPF_LD, jt: 0, jf: 0, k: BPF_SYSCALL_NR });
-    for s in syscalls {
+    for s in allowed {
         filter.push(sock_filter { code: BPF_JEQ, jt: 0, jf: 1, k: *s as u32 });
         filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_ALLOW });
+    }
+    for s in killing {
+        filter.push(sock_filter { code: BPF_JEQ, jt: 0, jf: 1, k: *s as u32 });
+        filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_KILL });
     }
     filter.push(sock_filter { code: BPF_RET, jt: 0, jf: 0, k: SECCOMP_RET_TRACE });
     unsafe {

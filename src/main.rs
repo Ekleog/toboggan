@@ -12,12 +12,12 @@ use syscalls::Syscall;
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
-fn spawn_child(sigset: libc::sigset_t) {
+fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall]) {
     posix::ptraceme();
 
     posix::setsigmask(sigset);
 
-    if let Err(e) = seccomp::install_filter(&[Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect, Syscall::close, Syscall::read, Syscall::fstat]) {
+    if let Err(e) = seccomp::install_filter(allowed, killing) {
         panic!("unable to install seccomp filter: {}", e);
     }
 
@@ -57,11 +57,14 @@ fn main() {
             ))
         )
     );
+    let allowed = [Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect,
+                   Syscall::close, Syscall::read, Syscall::fstat];
+    let killing = [Syscall::ioctl];
 
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
     if pid == 0 {
-        spawn_child(sigset);
+        spawn_child(sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
         ptrace_child(pid, filters, policy);
