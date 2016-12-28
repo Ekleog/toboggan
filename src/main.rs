@@ -57,9 +57,22 @@ fn main() {
             ))
         )
     );
-    let allowed = [Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect,
-                   Syscall::close, Syscall::read, Syscall::fstat];
-    let killing = [Syscall::ioctl];
+    for s in &[Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect,
+               Syscall::close, Syscall::read, Syscall::fstat] {
+        filters.insert(*s, Filter::Allow);
+    }
+    for s in &[Syscall::ioctl] {
+        filters.insert(*s, Filter::Kill);
+    }
+
+    let allowed: Vec<Syscall> = filters.iter()
+                                       .filter(|&(_, v)| *v == Filter::Allow)
+                                       .map(|(k, _)| k.clone())
+                                       .collect();
+    let killing: Vec<Syscall> = filters.iter()
+                                       .filter(|&(_, v)| *v == Filter::Kill)
+                                       .map(|(k, _)| k.clone())
+                                       .collect();
 
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
