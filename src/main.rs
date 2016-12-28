@@ -25,28 +25,9 @@ fn spawn_child(sigset: libc::sigset_t) {
     unreachable!();
 }
 
-fn ptrace_child(pid: libc::pid_t) {
-    // TODO: Allow filtering on syscall
-
-    let policy = Filter::Log(Box::new(Filter::Allow));
-    let mut filter: HashMap<Syscall, Filter> = HashMap::new();
-    filter.insert(Syscall::getdents,
-        Filter::Log(Box::new(Filter::Kill))
-    );
-    filter.insert(Syscall::open,
-        Filter::Log(
-            Box::new(Filter::PathIn(String::from("/nix/store"),
-                Box::new(Filter::LogStr(
-                    String::from("Accessing nix store!"),
-                    Box::new(Filter::Allow)
-                )),
-                Box::new(Filter::Allow)
-            ))
-        )
-    );
-
+fn ptrace_child(pid: libc::pid_t, filters: HashMap<Syscall, Filter>, policy: Filter) {
     posix::ptracehim(pid, |s| {
-        filter::eval(&filter.get(&s.syscall).unwrap_or(&policy), &s)
+        filter::eval(&filters.get(&s.syscall).unwrap_or(&policy), &s)
     });
 }
 
@@ -59,12 +40,30 @@ fn main() {
         panic!("seccomp filters unavailable!");
     }
 
+    // TODO: fetch from config file
+    let policy = Filter::Log(Box::new(Filter::Allow));
+    let mut filters: HashMap<Syscall, Filter> = HashMap::new();
+    filters.insert(Syscall::getdents,
+        Filter::Log(Box::new(Filter::Kill))
+    );
+    filters.insert(Syscall::open,
+        Filter::Log(
+            Box::new(Filter::PathIn(String::from("/nix/store"),
+                Box::new(Filter::LogStr(
+                    String::from("Accessing nix store!"),
+                    Box::new(Filter::Allow)
+                )),
+                Box::new(Filter::Allow)
+            ))
+        )
+    );
+
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
     if pid == 0 {
         spawn_child(sigset);
     } else {
         posix::setsigmask(sigset);
-        ptrace_child(pid);
+        ptrace_child(pid, filters, policy);
     }
 }
