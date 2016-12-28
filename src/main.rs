@@ -1,5 +1,7 @@
 extern crate libc;
+extern crate yaml_rust as yaml;
 
+mod config;
 mod filter;
 mod posix;
 mod seccomp;
@@ -40,30 +42,9 @@ fn main() {
         panic!("seccomp filters unavailable!");
     }
 
-    // TODO: fetch from config file
-    let policy = Filter::Log(Box::new(Filter::Allow));
-    let mut filters: HashMap<Syscall, Filter> = HashMap::new();
-    filters.insert(Syscall::getdents,
-        Filter::Log(Box::new(Filter::Kill))
-    );
-    filters.insert(Syscall::open,
-        Filter::Log(
-            Box::new(Filter::PathIn(String::from("/nix/store"),
-                Box::new(Filter::LogStr(
-                    String::from("Accessing nix store!"),
-                    Box::new(Filter::Allow)
-                )),
-                Box::new(Filter::Allow)
-            ))
-        )
-    );
-    for s in &[Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect,
-               Syscall::close, Syscall::read, Syscall::fstat] {
-        filters.insert(*s, Filter::Allow);
-    }
-    for s in &[Syscall::ioctl] {
-        filters.insert(*s, Filter::Kill);
-    }
+    let config = config::load_file("config.yaml");
+    let policy = config.policy;
+    let filters = config.filters;
 
     let allowed: Vec<Syscall> = filters.iter()
                                        .filter(|&(_, v)| *v == Filter::Allow)

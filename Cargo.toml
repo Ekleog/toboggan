@@ -5,3 +5,9 @@ authors = ["Léo Gaspard <leo@gaspard.io>"]
 
 [dependencies]
 libc = "0.2.18"
+
+# "This library needs more tests and it is NOT ready for parsing arbitrary user
+# input from untrusted source."
+# Config files are not an untrusted source, otherwise there is no point in
+# trying to sandbox using settings in these config files
+yaml-rust = "0.3.5"
