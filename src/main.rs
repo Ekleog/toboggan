@@ -5,9 +5,11 @@ mod posix;
 mod seccomp;
 mod syscalls;
 
+use std::collections::HashMap;
+
 use filter::Filter;
 use posix::Action;
-use syscalls::{Syscall};
+use syscalls::Syscall;
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
@@ -27,20 +29,22 @@ fn spawn_child(sigset: libc::sigset_t) {
 fn ptrace_child(pid: libc::pid_t) {
     // TODO: Allow filtering on syscall
 
-    let filter: Filter =
+    let policy = Filter::Log(Box::new(Filter::Allow));
+    let mut filter: HashMap<Syscall, Filter> = HashMap::new();
+    filter.insert(Syscall::getdents,
+        Filter::Log(Box::new(Filter::Kill))
+    );
+    filter.insert(Syscall::open,
         Filter::Log(
             Box::new(Filter::PathIn(String::from("/nix/store"),
                 Box::new(Filter::Kill),
                 Box::new(Filter::Allow)
             ))
-        );
+        )
+    );
 
     posix::ptracehim(pid, |s| {
-        if s.syscall == Syscall::getdents {
-            Action::Kill
-        } else {
-            filter::eval(&filter, &s)
-        }
+        filter::eval(&filter.get(&s.syscall).unwrap_or(&policy), &s)
     });
 }
 
