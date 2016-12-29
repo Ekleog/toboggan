@@ -1,5 +1,5 @@
 extern crate libc;
-extern crate yaml_rust as yaml;
+extern crate rustc_serialize;
 
 mod config;
 mod filter;
@@ -23,7 +23,7 @@ fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall])
         panic!("unable to install seccomp filter: {}", e);
     }
 
-    posix::exec("ls", &["ls"]);
+    posix::exec("tee", &["tee", "/nix/store/fubar"]);
     unreachable!();
 }
 

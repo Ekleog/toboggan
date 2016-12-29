@@ -1,3 +1,5 @@
+use rustc_serialize::{Encodable, Encoder};
+
 use posix;
 
 // Format for 4-arg filter: Arg[Op](a, b, jt, jf) ; effect: if a Op b then jt else jf
@@ -94,6 +96,95 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
         Filter::PathEq(ref s, ref jt, ref jf) => {
             if sys.path == *s { eval(&*jt, sys) }
             else              { eval(&*jf, sys) }
+        }
+    }
+}
+
+impl Encodable for Filter {
+    fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
+        match *self {
+            // Leafs
+            Filter::Allow => s.emit_str("allow"),
+            Filter::Kill  => s.emit_str("kill"),
+
+            // Tools
+            Filter::Log(ref f) => s.emit_struct("log", 2, |s| {
+                s.emit_struct_field("do"  , 0, |s| s.emit_str("log syscall"))?;
+                s.emit_struct_field("then", 1, |s| f.encode(s))?;
+                Ok(())
+            }),
+            Filter::LogStr(ref msg, ref f) => s.emit_struct("log_str", 3, |s| {
+                s.emit_struct_field("do"     , 0, |s| s.emit_str("log message"))?;
+                s.emit_struct_field("message", 1, |s| s.emit_str(msg))?;
+                s.emit_struct_field("then"   , 2, |s| f.encode(s))?;
+                Ok(())
+            }),
+
+            // Arguments
+            Filter::ArgEq(a, x, ref jt, ref jf) => s.emit_struct("arg_eq", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] == {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+
+            Filter::ArgLeq(a, x, ref jt, ref jf) => s.emit_struct("arg_leq", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] <= {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::ArgLe(a, x, ref jt, ref jf) => s.emit_struct("arg_le", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] < {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::ArgGeq(a, x, ref jt, ref jf) => s.emit_struct("arg_geq", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] >= {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::ArgGe(a, x, ref jt, ref jf) => s.emit_struct("arg_ge", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] > {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+
+            Filter::ArgHasBits(a, x, ref jt, ref jf) => s.emit_struct("arg_has_bits", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] has bits {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::ArgHasNoBits(a, x, ref jt, ref jf) => s.emit_struct("arg_has_no_bits", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] has no bits {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::ArgInBits(a, x, ref jt, ref jf) => s.emit_struct("arg_in_bits", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("arg[{}] in bits {}", a, x).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+
+            // Paths
+            Filter::PathIn(ref p, ref jt, ref jf) => s.emit_struct("path_in", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("path in {}", p).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
+            Filter::PathEq(ref p, ref jt, ref jf) => s.emit_struct("path_en", 3, |s| {
+                s.emit_struct_field("test" , 0, |s| format!("path == {}", p).encode(s))?;
+                s.emit_struct_field("true" , 1, |s| jt.encode(s))?;
+                s.emit_struct_field("false", 2, |s| jf.encode(s))?;
+                Ok(())
+            }),
         }
     }
 }

@@ -1,6 +1,6 @@
 // TODO: Remove dead_code
 #[allow(dead_code, non_camel_case_types)]
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, RustcDecodable, RustcEncodable)]
 pub enum Syscall {
     read = 0,
     write = 1,
