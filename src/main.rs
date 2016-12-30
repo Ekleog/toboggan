@@ -1,5 +1,7 @@
 extern crate libc;
 extern crate rustc_serialize;
+extern crate serde;
+extern crate serde_json;
 
 mod config;
 mod filter;

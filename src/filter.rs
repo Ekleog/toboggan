@@ -1,11 +1,15 @@
+use std::error::Error as StdError;
+use std::str::FromStr;
+
 use rustc_serialize::{Encodable, Encoder};
+use serde::{de, Deserialize, Deserializer, Error};
 
 use posix;
 
 // Format for 4-arg filter: Arg[Op](a, b, jt, jf) ; effect: if a Op b then jt else jf
 // TODO: Remove dead_code
 #[allow(dead_code)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum Filter {
     // Leafs
     Allow,
@@ -186,5 +190,157 @@ impl Encodable for Filter {
                 Ok(())
             }),
         }
+    }
+}
+
+struct FilterVisitor;
+
+fn parse<T: FromStr, E: Error>(s: &str) -> Result<T, E> where T::Err: StdError {
+    match s.parse() {
+        Ok(r)  => Ok(r),
+        Err(e) => Err(E::custom(e.description())),
+    }
+}
+
+impl de::Visitor for FilterVisitor {
+    type Value = Filter;
+
+    fn visit_str<E: de::Error>(&mut self, v: &str) -> Result<Filter, E> {
+        match v {
+            "allow" => Ok(Filter::Allow),
+            "kill"  => Ok(Filter::Kill),
+            _       => Err(E::invalid_value(&format!("Unable to parse string '{}' as Filter", v))),
+        }
+    }
+
+    fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<Filter, M::Error> {
+        let mut do_     = None;
+        let mut message = None;
+        let mut then    = None;
+        let mut test    = None;
+        let mut jt      = None;
+        let mut jf      = None;
+
+        while let Some(k) = v.visit_key::<String>()? {
+            match k.as_ref() {
+                "do" => {
+                    if do_.is_some() {
+                        return Err(M::Error::duplicate_field("do"));
+                    }
+                    do_ = Some(v.visit_value::<String>()?);
+                },
+                "message" => {
+                    if message.is_some() {
+                        return Err(M::Error::duplicate_field("message"));
+                    }
+                    message = Some(v.visit_value()?);
+                },
+                "then" => {
+                    if then.is_some() {
+                        return Err(M::Error::duplicate_field("then"));
+                    }
+                    then = Some(v.visit_value()?);
+                },
+                "test" => {
+                    if test.is_some() {
+                        return Err(M::Error::duplicate_field("test"));
+                    }
+                    test = Some(v.visit_value::<String>()?);
+                },
+                "true" => {
+                    if jt.is_some() {
+                        return Err(M::Error::duplicate_field("jt"));
+                    }
+                    jt = Some(v.visit_value()?);
+                },
+                "false" => {
+                    if jf.is_some() {
+                        return Err(M::Error::duplicate_field("jf"));
+                    }
+                    jf = Some(v.visit_value()?);
+                },
+                _ => return Err(M::Error::unknown_field(&k)),
+            }
+        }
+        v.end()?;
+
+        if do_.is_some() {
+            // Log or LogStr
+            if test.is_some() || jt.is_some() || jf.is_some() {
+                return Err(M::Error::custom("Cannot have both 'do' and test-like keys"));
+            }
+            if !then.is_some() {
+                return Err(M::Error::custom("Cannot have a 'do' without a 'then'"));
+            }
+            let then = then.unwrap();
+            match do_.unwrap().as_ref() {
+                "log syscall" => {
+                    if message.is_some() {
+                        return Err(M::Error::custom("Cannot have a 'message' field in a 'log syscall'"));
+                    }
+                    return Ok(Filter::Log(Box::new(then)));
+                },
+                "log message" => {
+                    if !message.is_some() {
+                        return Err(M::Error::missing_field("message"));
+                    }
+                    return Ok(Filter::LogStr(message.unwrap(), Box::new(then)));
+                },
+                do_ => return Err(M::Error::invalid_value(&format!("Unknown value for 'do': {}", do_))),
+            }
+        } else if test.is_some() {
+            if !jt.is_some() {
+                return Err(M::Error::missing_field("true"));
+            }
+            if !jf.is_some() {
+                return Err(M::Error::missing_field("false"));
+            }
+            if then.is_some() || message.is_some() {
+                return Err(M::Error::custom("Cannot have both 'test' and action-like keys"));
+            }
+            let test = test.unwrap();
+            let jt = jt.unwrap();
+            let jf = jf.unwrap();
+            if test.starts_with("path") {
+                if test.starts_with("path in ") {
+                    return Ok(Filter::PathIn(String::from(&test[8..]), Box::new(jt), Box::new(jf)));
+                } else if test.starts_with("path == ") {
+                    return Ok(Filter::PathEq(String::from(&test[8..]), Box::new(jt), Box::new(jf)));
+                } else {
+                    return Err(M::Error::invalid_value(&format!("Invalid path test: '{}'", test)));
+                }
+            } else if test.starts_with("arg[") {
+                let arg = parse(&test[5..6])?;
+                if &test[6..11] == "] == " {
+                    return Ok(Filter::ArgEq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..11] == "] <= " {
+                    return Ok(Filter::ArgLeq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..10] == "] < " {
+                    return Ok(Filter::ArgLe(arg, parse(&test[10..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..11] == "] >= " {
+                    return Ok(Filter::ArgGeq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..10] == "] > " {
+                    return Ok(Filter::ArgGe(arg, parse(&test[10..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..17] == "] has bits " {
+                    return Ok(Filter::ArgHasBits(arg, parse(&test[17..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..20] == "] has no bits " {
+                    return Ok(Filter::ArgHasBits(arg, parse(&test[20..])?, Box::new(jt), Box::new(jf)));
+                } else if &test[6..16] == "] in bits " {
+                    return Ok(Filter::ArgHasBits(arg, parse(&test[16..])?, Box::new(jt), Box::new(jf)));
+                } else {
+                    return Err(M::Error::invalid_value(&format!("Invalid arg test: '{}'", test)));
+                }
+            } else {
+                return Err(M::Error::invalid_value(&format!("Invalid test: '{}'", test)));
+            }
+        } else {
+            return Err(M::Error::missing_field("Filter is missing both 'do' and 'test'"));
+        }
+    }
+}
+
+impl Deserialize for Filter {
+    fn deserialize<D: Deserializer>(d: &mut D) -> Result<Filter, D::Error> {
+        d.deserialize(FilterVisitor)
     }
 }
