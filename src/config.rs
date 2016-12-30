@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Read;
 
 use rustc_serialize::json;
 use serde::{de, Deserialize, Deserializer, Error};
@@ -65,44 +68,31 @@ impl Deserialize for Config {
     }
 }
 
-pub fn load_file(f: &str) -> Config {
-    // TODO: fetch from config file
-    let mut config = Config {
-        policy: Filter::Log(Box::new(Filter::Allow)),
-        filters: HashMap::new(),
-    };
-    config.filters.insert(Syscall::getdents,
-        Filter::Log(Box::new(Filter::Kill))
-    );
-    config.filters.insert(Syscall::open,
-        Filter::Log(
-            Box::new(Filter::PathIn(String::from("/nix/store"),
-                Box::new(Filter::LogStr(
-                    String::from("Accessing nix store!"),
-                    Box::new(Filter::ArgHasNoBits(1, 3,
-                        Box::new(Filter::Allow),
-                        Box::new(Filter::LogStr(
-                            String::from("Trying to open file in the nix store not read-only, killing!"),
-                            Box::new(Filter::Kill)
-                        ))
-                    ))
-                )),
-                Box::new(Filter::Allow)
-            ))
-        )
-    );
-    for s in &[Syscall::write, Syscall::exit, Syscall::brk, Syscall::mmap, Syscall::mprotect,
-               Syscall::close, Syscall::read, Syscall::fstat] {
-        config.filters.insert(*s, Filter::Allow);
-    }
-    for s in &[Syscall::ioctl] {
-        config.filters.insert(*s, Filter::Kill);
-    }
+#[derive(Debug)]
+pub enum LoadError {
+    IoError(io::Error),
+    ParseError(serde_json::Error),
+}
 
-    let json = format!("{}", json::as_pretty_json(&config));
-    println!("=====\nfilter:\n{}\n=====", &json);
-    let conf2: Config = serde_json::from_str(&json).unwrap();
-    println!("=====\nencoded-decoded filter:\n{}\n=====", json::as_pretty_json(&conf2));
+impl From<io::Error> for LoadError {
+    fn from(err: io::Error) -> LoadError {
+        LoadError::IoError(err)
+    }
+}
 
-    config
+impl From<serde_json::Error> for LoadError {
+    fn from(err: serde_json::Error) -> LoadError {
+        LoadError::ParseError(err)
+    }
+}
+
+pub fn load_file(f: &str) -> Result<Config, LoadError> {
+    let mut f = File::open(f)?;
+    let mut s = String::new();
+    f.read_to_string(&mut s)?;
+
+    let config: Config = serde_json::from_str(&s)?;
+    println!("=====\n filter:\n{}\n=====", json::as_pretty_json(&config));
+
+    Ok(config)
 }

@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "do": "log syscall",
+    "then": "allow"
+  },
+  "filters": {
+    "open": {
+      "do": "log syscall",
+      "then": {
+        "test": "path in /nix/store",
+        "true": {
+          "do": "log message",
+          "message": "Accessing nix store!",
+          "then": {
+            "test": "arg[1] has no bits 3",
+            "true": "allow",
+            "false": {
+              "do": "log message",
+              "message": "Trying to open file in the nix store not read-only, killing!",
+              "then": "kill"
+            }
+          }
+        },
+        "false": "allow"
+      }
+    },
+    "exit": "allow",
+    "read": "allow",
+    "ioctl": "kill",
+    "brk": "allow",
+    "mmap": "allow",
+    "close": "allow",
+    "fstat": "allow",
+    "getdents": {
+      "do": "log syscall",
+      "then": "kill"
+    },
+    "mprotect": "allow",
+    "write": "allow"
+  }
+}

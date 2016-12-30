@@ -46,7 +46,7 @@ fn main() {
         panic!("seccomp filters unavailable!");
     }
 
-    let config = config::load_file("config.yaml");
+    let config = config::load_file("config.json").unwrap(); // TODO: Gracefully show error
     let policy = config.policy;
     let filters = config.filters;
 
