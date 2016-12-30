@@ -119,18 +119,53 @@ fn stop_type(status: c_int) -> PtraceStop {
 }
 
 pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
+    // Attach
     if unsafe { ptrace(PTRACE_ATTACH, pid, 0, 0) } != 0 {
         panic!("unable to ptrace child!");
     }
-    waitit(); // Wait for the process to receive the SIGSTOP
+
+    // Wait for the process to receive the SIGSTOP
+    waitit();
+
+    // Set ptrace options
     // TODO: Make sure forks are ptraced
     let options = PTRACE_O_EXITKILL | PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEEXEC;
     if unsafe { ptrace(PTRACE_SETOPTIONS, pid, 0, options) } != 0 {
         panic!("unable to trace seccomp on child: {}", unsafe { *__errno_location() });
     }
+
+    // Start the process
     continueit(pid);
     sendcont(pid);
 
+    // Wait for execve to succeed
+    loop {
+        println!("in loop");
+        let status = waitit();
+        match status {
+            // Skip execve's
+            PtraceStop::Seccomp => {
+                println!("seccomp");
+                if let Ok(syscall) = syscall_info(pid) {
+                    if syscall.syscall == Syscall::execve {
+                        continueit(pid);
+                        continue
+                    }
+                }
+                panic!("Unexpected syscall before exec succeed");
+            },
+
+            // And stop skipping syscalls on exec
+            PtraceStop::Exec => break,
+
+            // Anything else is abnormal
+            _ => panic!("Unknown ptrace stop before exec succeed"),
+        }
+    }
+    println!("out of loop");
+    continueit(pid);
+
+    // And monitor the exec'ed process
     loop {
         // TODO: manage multiprocess
         let status = waitit();
@@ -149,7 +184,6 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
             PtraceStop::Exit => break, // Process just exited
 
             PtraceStop::Exec => (), // Do nothing
-            // TODO: is this really a good idea? what exactly is this stop supposed to be used for?
 
             PtraceStop::Unknown(s) => panic!("Out of waitit with unknown status 0x{:08x}", s),
             // TODO: do not panic in release builds
