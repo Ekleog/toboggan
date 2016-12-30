@@ -8,8 +8,6 @@ use serde::{de, Deserialize, Deserializer, Error};
 use posix;
 
 // Format for 4-arg filter: Arg[Op](a, b, jt, jf) ; effect: if a Op b then jt else jf
-// TODO: Remove dead_code
-#[allow(dead_code)]
 #[derive(PartialEq, Eq, Debug)]
 pub enum Filter {
     // Leafs

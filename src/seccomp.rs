@@ -33,7 +33,7 @@ pub fn has_seccomp_filter() -> bool {
     }
 }
 
-#[allow(dead_code, non_camel_case_types)]
+#[allow(non_camel_case_types)]
 #[repr(C)]
 struct sock_filter {
     code: u16,
@@ -42,7 +42,7 @@ struct sock_filter {
     k: u32,
 }
 
-#[allow(dead_code, non_camel_case_types)]
+#[allow(non_camel_case_types)]
 #[repr(C)]
 struct sock_fprog {
     len: c_ushort,

@@ -1,7 +1,6 @@
 use serde::{de, Deserialize, Deserializer};
 
-// TODO: Remove dead_code
-#[allow(dead_code, non_camel_case_types)]
+#[allow(non_camel_case_types)]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, RustcDecodable, RustcEncodable)]
 pub enum Syscall {
     read = 0,

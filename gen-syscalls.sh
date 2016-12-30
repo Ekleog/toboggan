@@ -11,8 +11,7 @@ exec > src/syscalls.rs
 
 echo "use serde::{de, Deserialize, Deserializer};"
 echo ""
-echo "// TODO: Remove dead_code"
-echo "#[allow(dead_code, non_camel_case_types)]"
+echo "#[allow(non_camel_case_types)]"
 echo "#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, RustcDecodable, RustcEncodable)]"
 echo "pub enum Syscall {"
 echo "$syscalls" | awk '{ print "    " $1 " = " $2 "," }'
