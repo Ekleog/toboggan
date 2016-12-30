@@ -140,12 +140,10 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
 
     // Wait for execve to succeed
     loop {
-        println!("in loop");
         let status = waitit();
         match status {
             // Skip execve's
             PtraceStop::Seccomp => {
-                println!("seccomp");
                 if let Ok(syscall) = syscall_info(pid) {
                     if syscall.syscall == Syscall::execve {
                         continueit(pid);
@@ -162,7 +160,6 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
             _ => panic!("Unknown ptrace stop before exec succeed"),
         }
     }
-    println!("out of loop");
     continueit(pid);
 
     // And monitor the exec'ed process

@@ -25,7 +25,6 @@ impl de::Visitor for ConfigVisitor {
         let mut filters = None;
 
         while let Some(k) = v.visit_key::<String>()? {
-            println!("Visiting key {}", k);
             match k.as_ref() {
                 "policy" => {
                     if policy.is_some() {
@@ -34,7 +33,6 @@ impl de::Visitor for ConfigVisitor {
                     policy = Some(v.visit_value()?);
                 },
                 "filters" => {
-                    println!("About to visit!");
                     if filters.is_some() {
                         return Err(M::Error::duplicate_field("filters"));
                     }
@@ -42,10 +40,8 @@ impl de::Visitor for ConfigVisitor {
                 },
                 _ => return Err(M::Error::unknown_field(&k)),
             }
-            println!("Visited");
         }
         v.end()?;
-        println!("OUT OF STUFF: policy={:?}, filters={:?}", policy, filters);
 
         let policy = match policy {
             Some(p) => p,

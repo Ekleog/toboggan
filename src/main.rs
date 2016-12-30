@@ -1,4 +1,6 @@
+#[macro_use] extern crate lazy_static;
 extern crate libc;
+extern crate regex;
 extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;

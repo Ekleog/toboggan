@@ -1,6 +1,7 @@
 use std::error::Error as StdError;
 use std::str::FromStr;
 
+use regex::Regex;
 use rustc_serialize::{Encodable, Encoder};
 use serde::{de, Deserialize, Deserializer, Error};
 
@@ -195,10 +196,73 @@ impl Encodable for Filter {
 
 struct FilterVisitor;
 
-fn parse<T: FromStr, E: Error>(s: &str) -> Result<T, E> where T::Err: StdError {
+fn parse_int<T: FromStr, E: Error>(s: &str) -> Result<T, E> where T::Err: StdError {
     match s.parse() {
         Ok(r)  => Ok(r),
         Err(e) => Err(E::custom(e.description())),
+    }
+}
+
+enum FilterTest {
+    ArgEq(usize, u64),
+
+    ArgLeq(usize, u64),
+    ArgLe(usize, u64),
+    ArgGeq(usize, u64),
+    ArgGe(usize, u64),
+
+    ArgHasBits(usize, u64),
+    ArgHasNoBits(usize, u64),
+    ArgInBits(usize, u64),
+
+    PathIn(String),
+    PathEq(String),
+}
+
+fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
+    let test = test.to_lowercase();
+    lazy_static! {
+        /* TODO: uncomment after checking x flag
+        static ref ARG_RE: Regex = Regex::new(r"(?x)
+            ^arg\s*\[\s*(?P<arg>[0-5])\s*\]\s+                   # arg[a]
+            (?P<op>==|<=|<|>=|>|has bits|has no bits|in bits)\s+ # operator
+            (?P<val>[1-9][0-9]*)$                                # value, integer
+        ").unwrap();
+        static ref PATH_RE: Regex = Regex::new(r"(?x)
+            ^path\s+         # 'path'
+            (?P<op>in|==)\s+ # operator
+            (?P<path>.*)$    # path
+        ").unwrap();
+        */
+        static ref ARG_RE: Regex = Regex::new(r"^arg\s*\[\s*(?P<arg>[0-5])\s*\]\s+(?P<op>==|<=|<|>=|>|has bits|has no bits|in bits)\s+(?P<val>[1-9][0-9]*)$").unwrap();
+        static ref PATH_RE: Regex = Regex::new(r"^path\s+(?P<op>in|==)\s+(?P<path>.*)$").unwrap();
+    }
+    if let Some(c) = ARG_RE.captures(&test) {
+        let arg = parse_int(c.name("arg").unwrap())?;
+        let val = parse_int(c.name("val").unwrap())?;
+        match c.name("op").unwrap() {
+            "==" => Ok(FilterTest::ArgEq(arg, val)),
+
+            "<=" => Ok(FilterTest::ArgLeq(arg, val)),
+            "<"  => Ok(FilterTest::ArgLe(arg, val)),
+            ">=" => Ok(FilterTest::ArgGeq(arg, val)),
+            ">"  => Ok(FilterTest::ArgGe(arg, val)),
+
+            "has bits"    => Ok(FilterTest::ArgHasBits(arg, val)),
+            "has no bits" => Ok(FilterTest::ArgHasNoBits(arg, val)),
+            "in bits"     => Ok(FilterTest::ArgInBits(arg, val)),
+
+            op => Err(E::invalid_value(&format!("Unknown arg operator: {}", op))),
+        }
+    } else if let Some(c) = PATH_RE.captures(&test) {
+        let path = c.name("path").unwrap();
+        match c.name("op").unwrap() {
+            "in" => Ok(FilterTest::PathIn(String::from(path))),
+            "==" => Ok(FilterTest::PathEq(String::from(path))),
+            op   => Err(E::invalid_value(&format!("Unknown path operator: {}", op))),
+        }
+    } else {
+        Err(E::invalid_value(&format!("Invalid test: '{}'", test)))
     }
 }
 
@@ -245,7 +309,7 @@ impl de::Visitor for FilterVisitor {
                     if test.is_some() {
                         return Err(M::Error::duplicate_field("test"));
                     }
-                    test = Some(v.visit_value::<String>()?);
+                    test = Some(parse_test(v.visit_value::<String>()?)?);
                 },
                 "true" => {
                     if jt.is_some() {
@@ -299,40 +363,23 @@ impl de::Visitor for FilterVisitor {
                 return Err(M::Error::custom("Cannot have both 'test' and action-like keys"));
             }
             let test = test.unwrap();
-            let jt = jt.unwrap();
-            let jf = jf.unwrap();
-            if test.starts_with("path") {
-                if test.starts_with("path in ") {
-                    return Ok(Filter::PathIn(String::from(&test[8..]), Box::new(jt), Box::new(jf)));
-                } else if test.starts_with("path == ") {
-                    return Ok(Filter::PathEq(String::from(&test[8..]), Box::new(jt), Box::new(jf)));
-                } else {
-                    return Err(M::Error::invalid_value(&format!("Invalid path test: '{}'", test)));
-                }
-            } else if test.starts_with("arg[") {
-                let arg = parse(&test[5..6])?;
-                if &test[6..11] == "] == " {
-                    return Ok(Filter::ArgEq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..11] == "] <= " {
-                    return Ok(Filter::ArgLeq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..10] == "] < " {
-                    return Ok(Filter::ArgLe(arg, parse(&test[10..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..11] == "] >= " {
-                    return Ok(Filter::ArgGeq(arg, parse(&test[11..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..10] == "] > " {
-                    return Ok(Filter::ArgGe(arg, parse(&test[10..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..17] == "] has bits " {
-                    return Ok(Filter::ArgHasBits(arg, parse(&test[17..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..20] == "] has no bits " {
-                    return Ok(Filter::ArgHasBits(arg, parse(&test[20..])?, Box::new(jt), Box::new(jf)));
-                } else if &test[6..16] == "] in bits " {
-                    return Ok(Filter::ArgHasBits(arg, parse(&test[16..])?, Box::new(jt), Box::new(jf)));
-                } else {
-                    return Err(M::Error::invalid_value(&format!("Invalid arg test: '{}'", test)));
-                }
-            } else {
-                return Err(M::Error::invalid_value(&format!("Invalid test: '{}'", test)));
-            }
+            let jt = Box::new(jt.unwrap());
+            let jf = Box::new(jf.unwrap());
+            Ok(match test {
+                FilterTest::ArgEq(a, x) => Filter::ArgEq(a, x, jt, jf),
+
+                FilterTest::ArgLeq(a, x) => Filter::ArgLeq(a, x, jt, jf),
+                FilterTest::ArgLe(a, x)  => Filter::ArgLe(a, x, jt, jf),
+                FilterTest::ArgGeq(a, x) => Filter::ArgGeq(a, x, jt, jf),
+                FilterTest::ArgGe(a, x)  => Filter::ArgGe(a, x, jt, jf),
+
+                FilterTest::ArgHasBits(a, x)   => Filter::ArgHasBits(a, x, jt, jf),
+                FilterTest::ArgHasNoBits(a, x) => Filter::ArgHasNoBits(a, x, jt, jf),
+                FilterTest::ArgInBits(a, x)    => Filter::ArgInBits(a, x, jt, jf),
+
+                FilterTest::PathIn(s) => Filter::PathIn(s, jt, jf),
+                FilterTest::PathEq(s) => Filter::PathEq(s, jt, jf),
+            })
         } else {
             return Err(M::Error::missing_field("Filter is missing both 'do' and 'test'"));
         }
