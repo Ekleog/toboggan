@@ -1,5 +1,7 @@
 use std::{ffi, fs, mem, path, str};
+
 use libc::*;
+use serde::{Serialize, Serializer};
 
 use syscalls;
 use syscalls::Syscall;
@@ -193,6 +195,20 @@ pub struct SyscallInfo {
     pub syscall: Syscall,
     pub args: [u64; 6],
     pub path: String,
+}
+
+// TODO: remove when auto-derive is ready?
+impl Serialize for SyscallInfo {
+    fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
+        let mut state = s.serialize_map(Some(3))?;
+        s.serialize_map_key(&mut state, "syscall")?;
+        s.serialize_map_value(&mut state, self.syscall)?;
+        s.serialize_map_key(&mut state, "args")?;
+        s.serialize_map_value(&mut state, &self.args)?;
+        s.serialize_map_key(&mut state, "path")?;
+        s.serialize_map_value(&mut state, &self.path)?;
+        s.serialize_map_end(state)
+    }
 }
 
 fn canonicalize(p: String) -> path::PathBuf {
