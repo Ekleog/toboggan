@@ -18,7 +18,7 @@ use syscalls::Syscall;
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
-fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall]) {
+fn spawn_child(prog: &str, args: &[&str], sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall]) {
     posix::ptraceme();
 
     posix::setsigmask(sigset);
@@ -27,8 +27,7 @@ fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall])
         panic!("unable to install seccomp filter: {}", e);
     }
 
-    // TODO: Allow command-line configuration
-    posix::exec("tee", &["tee", "/nix/store/fubar"]);
+    posix::exec(prog, args);
     unreachable!();
 }
 
@@ -53,7 +52,12 @@ fn main() {
     }
 
     // TODO: Allow command-line configuration
-    let config = config::load_file("config.json").unwrap(); // TODO: Gracefully show error
+    let config_file = "config.json";
+    let asker_script = "./asker.sh";
+    let prog = "tee";
+    let args = &["tee", "/nix/store/fubar"];
+
+    let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error
     let policy = config.policy;
     let filters = config.filters;
 
@@ -69,10 +73,9 @@ fn main() {
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
     if pid == 0 {
-        spawn_child(sigset, &allowed, &killing);
+        spawn_child(prog, args, sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
-        // TODO: Allow command-line configuration
-        ptrace_child(pid, filters, policy, "./asker.sh");
+        ptrace_child(pid, filters, policy, asker_script);
     }
 }
