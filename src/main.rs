@@ -66,6 +66,8 @@ fn main() {
         (version: crate_version!())
         (author: crate_authors!())
         (about: "Sandboxes applications in a user-friendly way")
+        (setting: clap::AppSettings::TrailingVarArg)
+        (setting: clap::AppSettings::UnifiedHelpMessage)
         (usage: "toboggan -c <CONFIG> [OPTIONS] -- <PROG>...")
         (@arg CONFIG: -c --config <CONFIG> * display_order(0) "Sets the config file")
         (@arg ASKER: -a --asker default_value(&asker_script) "Asker script")
