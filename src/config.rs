@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 
-use serde::{de, Deserialize, Deserializer, Error};
+use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde_json;
 
 use filter::Filter;
@@ -14,6 +14,17 @@ use syscalls::Syscall;
 pub struct Config {
     pub policy: Filter,
     pub filters: HashMap<Syscall, Filter>,
+}
+
+impl Serialize for Config {
+    fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
+        let mut state = s.serialize_map(Some(2))?;
+        s.serialize_map_key(&mut state, "policy")?;
+        s.serialize_map_value(&mut state, &self.policy)?;
+        s.serialize_map_key(&mut state, "filters")?;
+        s.serialize_map_value(&mut state, &self.filters)?;
+        s.serialize_map_end(state)
+    }
 }
 
 struct ConfigVisitor;
@@ -90,6 +101,7 @@ pub fn load_file(f: &str) -> Result<Config, LoadError> {
     f.read_to_string(&mut s)?;
 
     let config: Config = serde_json::from_str(&s)?;
+    println!("=====\nfilter:\n{}\n=====", serde_json::to_string_pretty(&config)?);
 
     Ok(config)
 }

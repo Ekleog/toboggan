@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::str::FromStr;
 
 use regex::Regex;
-use serde::{de, Deserialize, Deserializer, Error};
+use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
 
 use posix;
 
@@ -98,6 +98,69 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
         Filter::PathEq(ref s, ref jt, ref jf) => {
             if sys.path == *s { eval(&*jt, sys) }
             else              { eval(&*jf, sys) }
+        }
+    }
+}
+
+// Wasn't able to find a cleaner way to have this
+macro_rules! count {
+    ( )                         => { 0 };
+    ( $x:expr $( , $y:expr )* ) => { 1 + count![ $( $y ),* ] };
+}
+macro_rules! serialize_map {
+    ( $s:expr, { $( $k:expr => $v:expr ),* } ) => {{
+        let mut state = $s.serialize_map(Some(count!($($k),*)))?;
+        $(
+            $s.serialize_map_key(&mut state, $k)?;
+            $s.serialize_map_value(&mut state, $v)?;
+        )*
+        $s.serialize_map_end(state)
+    }};
+}
+fn serialize_test<S: Serializer>(s: &mut S, test: &str, jt: &Box<Filter>, jf: &Box<Filter>)
+        -> Result<(), S::Error> {
+    serialize_map!(s, {
+        "test"  => test,
+        "true"  => jt,
+        "false" => jf
+    })
+}
+
+impl Serialize for Filter {
+    fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
+        use self::Filter::*;
+
+        match *self {
+            // Leafs
+            Allow => s.serialize_str("allow"),
+            Kill  => s.serialize_str("kill"),
+
+            // Tools
+            Log(ref then) => serialize_map!(s, {
+                "do"   => "log syscall",
+                "then" => then
+            }),
+            LogStr(ref msg, ref then) => serialize_map!(s, {
+                "do"      => "log message",
+                "message" => msg,
+                "then"    => then
+            }),
+
+            // Arguments
+            ArgEq(a, x, ref jt, ref jf)  => serialize_test(s, &format!("arg[{}] == {}", a, x), jt, jf),
+
+            ArgLeq(a, x, ref jt, ref jf) => serialize_test(s, &format!("arg[{}] <= {}", a, x), jt, jf),
+            ArgLe(a, x, ref jt, ref jf)  => serialize_test(s, &format!("arg[{}] < {}", a, x), jt, jf),
+            ArgGeq(a, x, ref jt, ref jf) => serialize_test(s, &format!("arg[{}] >= {}", a, x), jt, jf),
+            ArgGe(a, x, ref jt, ref jf)  => serialize_test(s, &format!("arg[{}] > {}", a, x), jt, jf),
+
+            ArgHasBits(a, x, ref jt, ref jf)   => serialize_test(s, &format!("arg[{}] has bits {}", a, x), jt, jf),
+            ArgHasNoBits(a, x, ref jt, ref jf) => serialize_test(s, &format!("arg[{}] has no bits {}", a, x), jt, jf),
+            ArgInBits(a, x, ref jt, ref jf)    => serialize_test(s, &format!("arg[{}] in bits {}", a, x), jt, jf),
+
+            // Path
+            PathIn(ref p, ref jt, ref jf) => serialize_test(s, &format!("path in {}", p), jt, jf),
+            PathEq(ref p, ref jt, ref jf) => serialize_test(s, &format!("path == {}", p), jt, jf),
         }
     }
 }
