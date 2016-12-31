@@ -1,3 +1,4 @@
+#[macro_use] extern crate clap;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
 extern crate regex;
@@ -54,16 +55,25 @@ fn main() {
 
     // Read asker script
     // TODO: gracefully fail
-    let mut my_dir = env::current_exe().unwrap();
-    my_dir.pop();
-    my_dir = fs::canonicalize(&my_dir).unwrap();
-    let provided_asker = String::from(my_dir.join("../../asker.sh").to_str().unwrap());
+    let mut provided_asker = env::current_exe().unwrap();
+    provided_asker.pop();
+    provided_asker.push("../../asker.sh");
+    provided_asker = fs::canonicalize(&provided_asker).unwrap();
+    let provided_asker = String::from(provided_asker.to_str().unwrap());
     let asker_script = env::var("TOBOGGAN_ASKER").unwrap_or(provided_asker);
 
-    // TODO: Allow command-line configuration
-    let config_file = "config.json";
-    let prog = "tee";
-    let args = &["tee", "/nix/store/fubar"];
+    let matches = clap_app!(toboggan =>
+        (version: crate_version!())
+        (author: crate_authors!())
+        (about: "Sandboxes applications in a user-friendly way")
+        (usage: "toboggan -c <CONFIG> [OPTIONS] -- <PROG>...")
+        (@arg CONFIG: -c --config <CONFIG> * display_order(0) "Sets the config file")
+        (@arg ASKER: -a --asker default_value(&asker_script) "Asker script")
+        (@arg PROG: * ... +allow_hyphen_values "Program to sandbox")
+    ).get_matches();
+    let config_file = matches.value_of("CONFIG").unwrap();
+    let args = matches.values_of("PROG").unwrap().collect::<Vec<&str>>();
+    let prog = args[0];
 
     let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error
     let policy = config.policy;
@@ -81,7 +91,7 @@ fn main() {
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
     if pid == 0 {
-        spawn_child(prog, args, sigset, &allowed, &killing);
+        spawn_child(prog, &args, sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
         ptrace_child(pid, filters, policy, &asker_script);
