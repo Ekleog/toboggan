@@ -11,6 +11,7 @@ mod posix;
 mod seccomp;
 mod syscalls;
 
+use std::{env, fs};
 use std::collections::HashMap;
 
 use filter::Filter;
@@ -51,9 +52,16 @@ fn main() {
         panic!("seccomp filters unavailable!");
     }
 
+    // Read asker script
+    // TODO: gracefully fail
+    let mut my_dir = env::current_exe().unwrap();
+    my_dir.pop();
+    my_dir = fs::canonicalize(&my_dir).unwrap();
+    let provided_asker = String::from(my_dir.join("../../asker.sh").to_str().unwrap());
+    let asker_script = env::var("TOBOGGAN_ASKER").unwrap_or(provided_asker);
+
     // TODO: Allow command-line configuration
     let config_file = "config.json";
-    let asker_script = "./asker.sh";
     let prog = "tee";
     let args = &["tee", "/nix/store/fubar"];
 
@@ -76,6 +84,6 @@ fn main() {
         spawn_child(prog, args, sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
-        ptrace_child(pid, filters, policy, asker_script);
+        ptrace_child(pid, filters, policy, &asker_script);
     }
 }
