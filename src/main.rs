@@ -33,7 +33,11 @@ fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall])
 
 fn ptrace_child(pid: libc::pid_t, filters: HashMap<Syscall, Filter>, policy: Filter) {
     posix::ptracehim(pid, |s| {
-        filter::eval(&filters.get(&s.syscall).unwrap_or(&policy), &s)
+        match filter::eval(&filters.get(&s.syscall).unwrap_or(&policy), &s) {
+            filter::FilterResult::Allow => posix::Action::Allow,
+            filter::FilterResult::Kill  => posix::Action::Kill,
+            filter::FilterResult::Ask   => unimplemented!(), // TODO
+        }
     });
 }
 

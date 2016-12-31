@@ -1,13 +1,9 @@
 use std::error::Error as StdError;
-use std::io::Write;
-use std::process::{Command, Stdio};
-use std::str;
 use std::str::FromStr;
 
 use regex::Regex;
 #[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
 use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
-use serde_json;
 
 use posix;
 
@@ -17,6 +13,7 @@ pub enum Filter {
     // Leafs
     Allow,
     Kill,
+    Ask,
 
     // Tools
     Eval(String),
@@ -41,77 +38,30 @@ pub enum Filter {
 }
 
 #[derive(Debug)]
-struct ScriptResult {
-    decision: posix::Action,
+pub enum FilterResult {
+    Allow,
+    Kill,
+    Ask,
 }
 
-struct ScriptResultVisitor;
-
-impl de::Visitor for ScriptResultVisitor {
-    type Value = ScriptResult;
-
-    fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<ScriptResult, M::Error> {
-        let mut decision = None;
-
-        while let Some(k) = v.visit_key::<String>()? {
-            match k.as_ref() {
-                "decision" => get_if_unset!(v, decision, "decision" ; posix::Action),
-                _          => return Err(M::Error::unknown_field(&k)),
-            }
+impl From<posix::Action> for FilterResult {
+    fn from(a: posix::Action) -> FilterResult {
+        match a {
+            posix::Action::Allow => FilterResult::Allow,
+            posix::Action::Kill  => FilterResult::Kill,
         }
-        v.end()?;
-
-        if !decision.is_some() {
-            return Err(M::Error::missing_field("decision"));
-        }
-
-        Ok(ScriptResult {
-            decision: decision.unwrap(),
-        })
     }
 }
 
-// TODO: Remove when auto-derive lands on stable
-impl Deserialize for ScriptResult {
-    fn deserialize<D: Deserializer>(d: &mut D) -> Result<ScriptResult, D::Error> {
-        d.deserialize(ScriptResultVisitor)
-    }
-}
-
-fn call_script(s: &str, sys: &posix::SyscallInfo) -> posix::Action {
-    let cmd = Command::new(s)
-                      .arg(serde_json::to_string(&sys).unwrap())
-                      .stderr(Stdio::inherit())
-                      .output()
-                      .expect(&format!("failed to execute script {}", s));
-    if !cmd.status.success() {
-        println_stderr!("toboggan: Script '{}' failed!", s);
-        return posix::Action::Kill
-    }
-    let stdout = str::from_utf8(&cmd.stdout);
-    if stdout.is_err() {
-        println_stderr!("toboggan: Script '{}' wrote invalid UTF-8 output!", s);
-        return posix::Action::Kill
-    }
-    let res = serde_json::from_str(stdout.unwrap());
-    if res.is_err() {
-        // TODO: cleanly display error
-        println_stderr!("toboggan: Unable to parse output of script '{}' ({}):", s, res.unwrap_err());
-        println_stderr!("{}", stdout.unwrap());
-        return posix::Action::Kill
-    }
-    let res: ScriptResult = res.unwrap();
-    res.decision
-}
-
-pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
+pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> FilterResult {
     match *f {
         // Leafs
-        Filter::Allow       => posix::Action::Allow,
-        Filter::Kill        => posix::Action::Kill,
-        Filter::Eval(ref s) => call_script(s, sys),
+        Filter::Allow => FilterResult::Allow,
+        Filter::Kill  => FilterResult::Kill,
+        Filter::Ask   => FilterResult::Ask,
 
         // Tools
+        Filter::Eval(ref s) => FilterResult::from(posix::call_script(s, sys)),
         Filter::Log(ref ff) => {
             println!(
                 "toboggan: {:?} [path = '{}'] ({}, {}, {}, {}, {}, {})",
@@ -190,12 +140,13 @@ impl Serialize for Filter {
             // Leafs
             Allow       => s.serialize_str("allow"),
             Kill        => s.serialize_str("kill"),
+            Ask         => s.serialize_str("ask"),
+
+            // Tools
             Eval(ref e) => serialize_map!(s, {
                 "do"     => "eval",
                 "script" => e
             }),
-
-            // Tools
             Log(ref then) => serialize_map!(s, {
                 "do"   => "log syscall",
                 "then" => then
@@ -300,6 +251,7 @@ impl de::Visitor for FilterVisitor {
         match v {
             "allow" => Ok(Filter::Allow),
             "kill"  => Ok(Filter::Kill),
+            "ask"   => Ok(Filter::Ask),
             _       => Err(E::invalid_value(&format!("Unable to parse string '{}' as Filter", v))),
         }
     }
