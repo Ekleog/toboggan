@@ -193,20 +193,16 @@ enum FilterTest {
 fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
     let test = test.to_lowercase();
     lazy_static! {
-        /* TODO: uncomment after checking x flag
         static ref ARG_RE: Regex = Regex::new(r"(?x)
-            ^arg\s*\[\s*(?P<arg>[0-5])\s*\]\s+                   # arg[a]
-            (?P<op>==|<=|<|>=|>|has bits|has no bits|in bits)\s+ # operator
-            (?P<val>[1-9][0-9]*)$                                # value, integer
+            ^arg\s*\[\s*(?P<arg>[0-5])\s*\]\s+                            # arg[a]
+            (?-x)(?P<op>==|<=|<|>=|>|has bits|has no bits|in bits)\s+(?x) # operator
+            (?P<val>[1-9][0-9]*)$                                         # value, integer
         ").unwrap();
         static ref PATH_RE: Regex = Regex::new(r"(?x)
             ^path\s+         # 'path'
             (?P<op>in|==)\s+ # operator
             (?P<path>.*)$    # path
         ").unwrap();
-        */
-        static ref ARG_RE: Regex = Regex::new(r"^arg\s*\[\s*(?P<arg>[0-5])\s*\]\s+(?P<op>==|<=|<|>=|>|has bits|has no bits|in bits)\s+(?P<val>[1-9][0-9]*)$").unwrap();
-        static ref PATH_RE: Regex = Regex::new(r"^path\s+(?P<op>in|==)\s+(?P<path>.*)$").unwrap();
     }
     if let Some(c) = ARG_RE.captures(&test) {
         let arg = parse_int(c.name("arg").unwrap())?;
