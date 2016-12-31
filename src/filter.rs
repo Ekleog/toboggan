@@ -233,6 +233,16 @@ fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
     }
 }
 
+// Only made to be used in de::Visitor (for some reason I can't find how to parameterize by M)
+macro_rules! get_if_unset {
+    ( $visitor:expr, $var:ident, $name:expr ; $typ:ty ) => {{
+        if $var.is_some() {
+            return Err(M::Error::duplicate_field($name))
+        }
+        $var = Some($visitor.visit_value::<$typ>()?);
+    }};
+}
+
 impl de::Visitor for FilterVisitor {
     type Value = Filter;
 
@@ -254,43 +264,17 @@ impl de::Visitor for FilterVisitor {
 
         while let Some(k) = v.visit_key::<String>()? {
             match k.as_ref() {
-                "do" => {
-                    if do_.is_some() {
-                        return Err(M::Error::duplicate_field("do"));
-                    }
-                    do_ = Some(v.visit_value::<String>()?);
-                },
-                "message" => {
-                    if message.is_some() {
-                        return Err(M::Error::duplicate_field("message"));
-                    }
-                    message = Some(v.visit_value()?);
-                },
-                "then" => {
-                    if then.is_some() {
-                        return Err(M::Error::duplicate_field("then"));
-                    }
-                    then = Some(v.visit_value()?);
-                },
-                "test" => {
-                    if test.is_some() {
-                        return Err(M::Error::duplicate_field("test"));
-                    }
-                    test = Some(parse_test(v.visit_value::<String>()?)?);
-                },
-                "true" => {
-                    if jt.is_some() {
-                        return Err(M::Error::duplicate_field("jt"));
-                    }
-                    jt = Some(v.visit_value()?);
-                },
-                "false" => {
-                    if jf.is_some() {
-                        return Err(M::Error::duplicate_field("jf"));
-                    }
-                    jf = Some(v.visit_value()?);
-                },
-                _ => return Err(M::Error::unknown_field(&k)),
+                "do"      => get_if_unset!(v, do_, "do"          ; String),
+                "message" => get_if_unset!(v, message, "message" ; String),
+                "then"    => get_if_unset!(v, then, "then"       ; Filter),
+                "test"    => {
+                    let mut t = None;
+                    get_if_unset!(v, t, "test" ; String);
+                    test = Some(parse_test(t.unwrap())?);
+                }
+                "true"    => get_if_unset!(v, jt, "true"         ; Filter),
+                "false"   => get_if_unset!(v, jf, "false"        ; Filter),
+                _         => return Err(M::Error::unknown_field(&k)),
             }
         }
         v.end()?;
