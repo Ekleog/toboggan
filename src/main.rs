@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2016  Leo Gaspard
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #[macro_use] extern crate clap;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
@@ -18,6 +35,8 @@ use std::collections::HashMap;
 use filter::Filter;
 use syscalls::Syscall;
 
+// TODO: Add readme
+// TODO: Add unit tests
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
 fn spawn_child(prog: &str, args: &[&str], sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall]) {
