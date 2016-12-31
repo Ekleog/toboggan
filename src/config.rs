@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 
-use rustc_serialize::json;
 use serde::{de, Deserialize, Deserializer, Error};
 use serde_json;
 
@@ -12,7 +11,6 @@ use syscalls::Syscall;
 
 // TODO: add syscall groups and add some default ones
 // (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
-#[derive(RustcEncodable)]
 pub struct Config {
     pub policy: Filter,
     pub filters: HashMap<Syscall, Filter>,
@@ -92,7 +90,6 @@ pub fn load_file(f: &str) -> Result<Config, LoadError> {
     f.read_to_string(&mut s)?;
 
     let config: Config = serde_json::from_str(&s)?;
-    println!("=====\n filter:\n{}\n=====", json::as_pretty_json(&config));
 
     Ok(config)
 }

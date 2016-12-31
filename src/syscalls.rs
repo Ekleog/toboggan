@@ -1,7 +1,7 @@
 use serde::{de, Deserialize, Deserializer};
 
 #[allow(non_camel_case_types)]
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, RustcDecodable, RustcEncodable)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum Syscall {
     read = 0,
     write = 1,

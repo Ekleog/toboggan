@@ -12,7 +12,7 @@ exec > src/syscalls.rs
 echo "use serde::{de, Deserialize, Deserializer};"
 echo ""
 echo "#[allow(non_camel_case_types)]"
-echo "#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash, RustcDecodable, RustcEncodable)]"
+echo "#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]"
 echo "pub enum Syscall {"
 echo "$syscalls" | awk '{ print "    " $1 " = " $2 "," }'
 echo "}"
