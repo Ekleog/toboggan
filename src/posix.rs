@@ -101,6 +101,7 @@ fn continueit(pid: pid_t) {
 pub enum Action {
     Allow,
     Kill,
+    // TODO: Add an Ignore target
 }
 
 struct ActionVisitor;

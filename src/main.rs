@@ -27,16 +27,18 @@ fn spawn_child(sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall])
         panic!("unable to install seccomp filter: {}", e);
     }
 
+    // TODO: Allow command-line configuration
     posix::exec("tee", &["tee", "/nix/store/fubar"]);
     unreachable!();
 }
 
-fn ptrace_child(pid: libc::pid_t, filters: HashMap<Syscall, Filter>, policy: Filter) {
+fn ptrace_child(pid: libc::pid_t, filters: HashMap<Syscall, Filter>, policy: Filter, ask: &str) {
     posix::ptracehim(pid, |s| {
         match filter::eval(&filters.get(&s.syscall).unwrap_or(&policy), &s) {
             filter::FilterResult::Allow => posix::Action::Allow,
             filter::FilterResult::Kill  => posix::Action::Kill,
-            filter::FilterResult::Ask   => unimplemented!(), // TODO
+            // TODO: Allow to answer something that will last for more than a single syscall
+            filter::FilterResult::Ask   => posix::call_script(ask, &s),
         }
     });
 }
@@ -50,6 +52,7 @@ fn main() {
         panic!("seccomp filters unavailable!");
     }
 
+    // TODO: Allow command-line configuration
     let config = config::load_file("config.json").unwrap(); // TODO: Gracefully show error
     let policy = config.policy;
     let filters = config.filters;
@@ -69,6 +72,7 @@ fn main() {
         spawn_child(sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
-        ptrace_child(pid, filters, policy);
+        // TODO: Allow command-line configuration
+        ptrace_child(pid, filters, policy, "./asker.sh");
     }
 }
