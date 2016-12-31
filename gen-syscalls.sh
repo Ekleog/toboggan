@@ -9,7 +9,7 @@ syscalls="$(cat $1 | grep __NR_ | sed -e 's/^.*__NR_//')"
 
 exec > src/syscalls.rs
 
-echo "use serde::{de, Deserialize, Deserializer};"
+echo "use serde::{de, Deserialize, Deserializer, Serialize, Serializer};"
 echo ""
 echo "#[allow(non_camel_case_types)]"
 echo "#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]"
@@ -21,6 +21,14 @@ echo "pub fn from(x: u64) -> Option<Syscall> {"
 echo "    match x {"
 echo "$syscalls" | awk '{ print "        " $2 " => Some(Syscall::" $1 ")," }'
 echo "        _ => None,"
+echo "    }"
+echo "}"
+echo ""
+echo "impl Serialize for Syscall {"
+echo "    fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {"
+echo "        s.serialize_str(match *self {"
+echo "$syscalls" | awk '{ print "            Syscall::" $1 " => \"" $1 "\"," }'
+echo "        })"
 echo "    }"
 echo "}"
 echo ""
