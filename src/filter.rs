@@ -173,21 +173,6 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
     }
 }
 
-// Wasn't able to find a cleaner way to have this
-macro_rules! count {
-    ( )                         => { 0 };
-    ( $x:expr $( , $y:expr )* ) => { 1 + count![ $( $y ),* ] };
-}
-macro_rules! serialize_map {
-    ( $s:expr, { $( $k:expr => $v:expr ),* } ) => {{
-        let mut state = $s.serialize_map(Some(count!($($k),*)))?;
-        $(
-            $s.serialize_map_key(&mut state, $k)?;
-            $s.serialize_map_value(&mut state, $v)?;
-        )*
-        $s.serialize_map_end(state)
-    }};
-}
 fn serialize_test<S: Serializer>(s: &mut S, test: &str, jt: &Box<Filter>, jf: &Box<Filter>)
         -> Result<(), S::Error> {
     serialize_map!(s, {

@@ -18,12 +18,10 @@ pub struct Config {
 
 impl Serialize for Config {
     fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
-        let mut state = s.serialize_map(Some(2))?;
-        s.serialize_map_key(&mut state, "policy")?;
-        s.serialize_map_value(&mut state, &self.policy)?;
-        s.serialize_map_key(&mut state, "filters")?;
-        s.serialize_map_value(&mut state, &self.filters)?;
-        s.serialize_map_end(state)
+        serialize_map!(s, {
+            "policy"  => &self.policy,
+            "filters" => &self.filters
+        })
     }
 }
 

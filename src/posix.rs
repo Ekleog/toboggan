@@ -224,14 +224,11 @@ pub struct SyscallInfo {
 // TODO: remove when auto-derive is ready?
 impl Serialize for SyscallInfo {
     fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
-        let mut state = s.serialize_map(Some(3))?;
-        s.serialize_map_key(&mut state, "syscall")?;
-        s.serialize_map_value(&mut state, self.syscall)?;
-        s.serialize_map_key(&mut state, "args")?;
-        s.serialize_map_value(&mut state, &self.args)?;
-        s.serialize_map_key(&mut state, "path")?;
-        s.serialize_map_value(&mut state, &self.path)?;
-        s.serialize_map_end(state)
+        serialize_map!(s, {
+            "syscall" => self.syscall,
+            "args"    => &self.args,
+            "path"    => &self.path
+        })
     }
 }
 
