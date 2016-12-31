@@ -1,8 +1,13 @@
 use std::error::Error as StdError;
+use std::io::Write;
+use std::process::{Command, Stdio};
+use std::str;
 use std::str::FromStr;
 
 use regex::Regex;
+#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
 use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
+use serde_json;
 
 use posix;
 
@@ -14,6 +19,7 @@ pub enum Filter {
     Kill,
 
     // Tools
+    Eval(String),
     Log(Box<Filter>),
     LogStr(String, Box<Filter>),
 
@@ -34,11 +40,76 @@ pub enum Filter {
     PathEq(String, Box<Filter>, Box<Filter>),
 }
 
+#[derive(Debug)]
+struct ScriptResult {
+    decision: posix::Action,
+}
+
+struct ScriptResultVisitor;
+
+impl de::Visitor for ScriptResultVisitor {
+    type Value = ScriptResult;
+
+    fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<ScriptResult, M::Error> {
+        let mut decision = None;
+
+        while let Some(k) = v.visit_key::<String>()? {
+            match k.as_ref() {
+                "decision" => get_if_unset!(v, decision, "decision" ; posix::Action),
+                _          => return Err(M::Error::unknown_field(&k)),
+            }
+        }
+        v.end()?;
+
+        if !decision.is_some() {
+            return Err(M::Error::missing_field("decision"));
+        }
+
+        Ok(ScriptResult {
+            decision: decision.unwrap(),
+        })
+    }
+}
+
+// TODO: Remove when auto-derive lands on stable
+impl Deserialize for ScriptResult {
+    fn deserialize<D: Deserializer>(d: &mut D) -> Result<ScriptResult, D::Error> {
+        d.deserialize(ScriptResultVisitor)
+    }
+}
+
+fn call_script(s: &str, sys: &posix::SyscallInfo) -> posix::Action {
+    let cmd = Command::new(s)
+                      .arg(serde_json::to_string(&sys).unwrap())
+                      .stderr(Stdio::inherit())
+                      .output()
+                      .expect(&format!("failed to execute script {}", s));
+    if !cmd.status.success() {
+        println_stderr!("toboggan: Script '{}' failed!", s);
+        return posix::Action::Kill
+    }
+    let stdout = str::from_utf8(&cmd.stdout);
+    if stdout.is_err() {
+        println_stderr!("toboggan: Script '{}' wrote invalid UTF-8 output!", s);
+        return posix::Action::Kill
+    }
+    let res = serde_json::from_str(stdout.unwrap());
+    if res.is_err() {
+        // TODO: cleanly display error
+        println_stderr!("toboggan: Unable to parse output of script '{}' ({}):", s, res.unwrap_err());
+        println_stderr!("{}", stdout.unwrap());
+        return posix::Action::Kill
+    }
+    let res: ScriptResult = res.unwrap();
+    res.decision
+}
+
 pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> posix::Action {
     match *f {
         // Leafs
-        Filter::Allow => posix::Action::Allow,
-        Filter::Kill  => posix::Action::Kill,
+        Filter::Allow       => posix::Action::Allow,
+        Filter::Kill        => posix::Action::Kill,
+        Filter::Eval(ref s) => call_script(s, sys),
 
         // Tools
         Filter::Log(ref ff) => {
@@ -132,8 +203,12 @@ impl Serialize for Filter {
 
         match *self {
             // Leafs
-            Allow => s.serialize_str("allow"),
-            Kill  => s.serialize_str("kill"),
+            Allow       => s.serialize_str("allow"),
+            Kill        => s.serialize_str("kill"),
+            Eval(ref e) => serialize_map!(s, {
+                "do"     => "eval",
+                "script" => e
+            }),
 
             // Tools
             Log(ref then) => serialize_map!(s, {
@@ -233,16 +308,6 @@ fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
     }
 }
 
-// Only made to be used in de::Visitor (for some reason I can't find how to parameterize by M)
-macro_rules! get_if_unset {
-    ( $visitor:expr, $var:ident, $name:expr ; $typ:ty ) => {{
-        if $var.is_some() {
-            return Err(M::Error::duplicate_field($name))
-        }
-        $var = Some($visitor.visit_value::<$typ>()?);
-    }};
-}
-
 impl de::Visitor for FilterVisitor {
     type Value = Filter;
 
@@ -258,6 +323,7 @@ impl de::Visitor for FilterVisitor {
         let mut do_     = None;
         let mut message = None;
         let mut then    = None;
+        let mut script  = None;
         let mut test    = None;
         let mut jt      = None;
         let mut jf      = None;
@@ -267,6 +333,7 @@ impl de::Visitor for FilterVisitor {
                 "do"      => get_if_unset!(v, do_, "do"          ; String),
                 "message" => get_if_unset!(v, message, "message" ; String),
                 "then"    => get_if_unset!(v, then, "then"       ; Filter),
+                "script"  => get_if_unset!(v, script, "script"   ; String),
                 "test"    => {
                     let mut t = None;
                     get_if_unset!(v, t, "test" ; String);
@@ -279,10 +346,20 @@ impl de::Visitor for FilterVisitor {
         }
         v.end()?;
 
+        // TODO: clean this up, it's becoming a mess
         if do_.is_some() {
             // Log or LogStr
             if test.is_some() || jt.is_some() || jf.is_some() {
                 return Err(M::Error::custom("Cannot have both 'do' and test-like keys"));
+            }
+            if script.is_some() {
+                if then.is_some() {
+                    return Err(M::Error::custom("Cannot have both 'script' and 'then' keys"));
+                }
+                if do_.unwrap() != "eval" {
+                    return Err(M::Error::custom("Cannot have 'script' with a non-'eval' do"));
+                }
+                return Ok(Filter::Eval(script.unwrap()));
             }
             if !then.is_some() {
                 return Err(M::Error::custom("Cannot have a 'do' without a 'then'"));

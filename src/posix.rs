@@ -1,7 +1,8 @@
 use std::{ffi, fs, mem, path, str};
 
 use libc::*;
-use serde::{Serialize, Serializer};
+#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
+use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
 
 use syscalls;
 use syscalls::Syscall;
@@ -93,9 +94,31 @@ fn continueit(pid: pid_t) {
     }
 }
 
+#[derive(Debug)]
 pub enum Action {
     Allow,
     Kill,
+}
+
+struct ActionVisitor;
+
+impl de::Visitor for ActionVisitor {
+    type Value = Action;
+
+    fn visit_str<E: de::Error>(&mut self, v: &str) -> Result<Action, E> {
+        match v {
+            "allow" => Ok(Action::Allow),
+            "kill"  => Ok(Action::Kill),
+            _       => Err(E::invalid_value(&format!("Invalid value for action: {}", v))),
+        }
+    }
+}
+
+// TODO: replace with auto-derive when it lands on stable
+impl Deserialize for Action {
+    fn deserialize<D: Deserializer>(d: &mut D) -> Result<Action, D::Error> {
+        d.deserialize(ActionVisitor)
+    }
 }
 
 enum PtraceStop {
@@ -191,6 +214,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
     }
 }
 
+#[derive(Debug)]
 pub struct SyscallInfo {
     pub syscall: Syscall,
     pub args: [u64; 6],

@@ -4,6 +4,7 @@ extern crate regex;
 extern crate serde;
 extern crate serde_json;
 
+#[macro_use] mod helpers;
 mod config;
 mod filter;
 mod posix;

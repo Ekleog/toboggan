@@ -100,6 +100,7 @@ pub fn load_file(f: &str) -> Result<Config, LoadError> {
     let mut s = String::new();
     f.read_to_string(&mut s)?;
 
+    // TODO: cleanly display error
     let config: Config = serde_json::from_str(&s)?;
     println!("=====\nfilter:\n{}\n=====", serde_json::to_string_pretty(&config)?);
 
