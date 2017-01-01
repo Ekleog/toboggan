@@ -100,4 +100,30 @@ pub fn install_filter(allowed: &[Syscall], killing: &[Syscall]) -> Result<(), &'
     }
 }
 
-// TODO: unit test
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libc;
+    use syscalls::Syscall;
+    use posix;
+
+    #[test]
+    fn seccomp_sanity() {
+        assert!(has_seccomp());
+        assert!(has_seccomp_filter());
+    }
+
+    #[test]
+    fn filter_killing() {
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            // Do not unwrap as it wouldn't make the test fail
+            let _ = install_filter(&[], &[Syscall::open]);
+            unsafe { libc::open("fubar".as_ptr() as *const libc::c_char, 3); }
+            loop { }
+        }
+        assert_eq!(posix::waitit(pid), posix::PtraceStop::Exit);
+    }
+
+    // TODO: test allowed and asking paths
+}

@@ -27,10 +27,10 @@ Testing
 
 src/main.rs:// TODO: find a way to test
 src/posix.rs:    // TODO: find a way to test exec
-src/seccomp.rs:// TODO: unit test
 src/posix.rs:    // TODO: find a way to test ptracehim
 src/posix.rs:    // TODO: Find a way to test SyscallInfo::new, syscall_info, read_str
 src/posix.rs:        // TODO: This assumes /var/run is a symlink to /run, find a way to make this env-agnostic
+src/seccomp.rs:    // TODO: test allowed and asking paths
 
 
 Cleanup

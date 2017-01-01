@@ -100,7 +100,7 @@ pub fn ptraceme() {
     waitforcont();
 }
 
-fn waitit(pid: pid_t) -> PtraceStop {
+pub fn waitit(pid: pid_t) -> PtraceStop {
     unsafe {
         let mut status: c_int = mem::uninitialized();
         waitpid(pid, &mut status, 0);
@@ -143,7 +143,7 @@ impl Deserialize for Action {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum PtraceStop {
+pub enum PtraceStop {
     Exec,
     Exit,
     Seccomp,
@@ -476,7 +476,7 @@ pub fn call_script(s: &str, sys: &SyscallInfo) -> Action {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{waitforcont, sendcont, waitit, PtraceStop, continueit, killit, canonicalize};
+    use super::{waitforcont, sendcont, continueit, killit, canonicalize};
     use libc;
     use std::{thread, time, path};
     use serde_json;
