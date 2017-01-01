@@ -29,11 +29,11 @@ Troubleshooting
 
 Be it a support request, a bug, a lack in documentation or anything else that
 doesn't just work as expected, please report it as a [GitHub
-issue](https://github.com/Ekleog/toboggan/issues/new)
+issue](https://github.com/Ekleog/toboggan/issues/new).
 
 If you don't have a github account, you can also contact me by email at
 leo@gaspard.io or on IRC at freenode, chan
-[`#toboggan`](https://webchat.freenode.net/?channels=toboggan)
+[`#toboggan`](https://webchat.freenode.net/?channels=toboggan).
 
 
 Contribute
@@ -50,7 +50,7 @@ process:
 6. Submit a pull request
 
 If you don't have or want a github account, I also accept patches at
-    leo@gaspard.io
+leo@gaspard.io .
 
 
 History
@@ -62,7 +62,7 @@ History
 License
 -------
 
-`toboggan` is licensed under GPLv3, please see the file called LICENSE.md
+`toboggan` is licensed under GPLv3, please see the file called `LICENSE.md`.
 
 
 Credits
