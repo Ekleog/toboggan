@@ -241,6 +241,7 @@ pub struct SyscallInfo {
     pub syscall: Syscall,
     pub args: [u64; 6],
     pub path: String,
+    // TODO: Split in path and realpath
 }
 
 // TODO: remove when auto-derive is ready?
@@ -475,11 +476,14 @@ pub fn call_script(s: &str, sys: &SyscallInfo) -> Action {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{waitforcont, sendcont, waitit, PtraceStop, continueit};
+    use super::{waitforcont, sendcont, waitit, PtraceStop, continueit, killit, canonicalize};
     use libc;
-    use std::{thread, time};
+    use std::{thread, time, path};
+    use serde_json;
+    use syscalls::Syscall;
 
     // TODO: find a way to test exec
+    // TODO: find a way to test ptracehim
 
     #[test]
     fn wait_and_cont() {
@@ -497,7 +501,7 @@ mod tests {
 
         let pid = unsafe { libc::fork() };
         if pid == 0 {
-            waitforcont();
+            ptraceme();
             unsafe { libc::exit(0) }
         }
         thread::sleep(time::Duration::from_millis(100));
@@ -507,4 +511,43 @@ mod tests {
 
         setsigmask(oldset);
     }
+
+    #[test]
+    fn test_kill() {
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            loop { }
+        }
+        killit(pid);
+        waitit(pid);
+    }
+
+    #[test]
+    fn syscallinfo_serialize() {
+        assert_eq!(serde_json::to_string_pretty(&SyscallInfo {
+            syscall: Syscall::read,
+            args: [0, 5, 32, 79, 12, 51],
+            path: String::from("/foo/bar/baz"),
+        }).unwrap(), r#"{
+  "syscall": "read",
+  "args": [
+    0,
+    5,
+    32,
+    79,
+    12,
+    51
+  ],
+  "path": "/foo/bar/baz"
+}"#);
+    }
+
+    #[test]
+    fn test_canonicalize() {
+        // TODO: This assumes /var/run is a symlink to /run, find a way to make this env-agnostic
+        assert_eq!(canonicalize(String::from("/var/run/thisdoesnotexist/bar/baz")),
+                   path::PathBuf::from("/run/thisdoesnotexist/bar/baz"));
+    }
+
+    // TODO: Find a way to test SyscallInfo::new, syscall_info, read_str
 }

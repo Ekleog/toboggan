@@ -8,6 +8,7 @@ src/posix.rs:    // TODO: Make sure forks are ptraced
 src/posix.rs:        // TODO: manage multiprocess
 src/posix.rs:    // TODO: allow to block environment passing?
 src/seccomp.rs:    // TODO: also handle non-x64 syscalls
+src/posix.rs:    // TODO: Split in path and realpath
 
 
 UI improvements
@@ -27,6 +28,9 @@ Testing
 src/main.rs:// TODO: find a way to test
 src/posix.rs:    // TODO: find a way to test exec
 src/seccomp.rs:// TODO: unit test
+src/posix.rs:    // TODO: find a way to test ptracehim
+src/posix.rs:    // TODO: Find a way to test SyscallInfo::new, syscall_info, read_str
+src/posix.rs:        // TODO: This assumes /var/run is a symlink to /run, find a way to make this env-agnostic
 
 
 Cleanup

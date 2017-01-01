@@ -45,9 +45,10 @@ process:
 1. Fork
 2. Create a work branch: `git checkout -b my-new-idea`
 3. Regenerate TODO-list: `./make-todo.sh`
-4. Commit your changes: `git commit -am "Make it do my new idea"`
-5. Push to your fork: `git push origin my-new-idea`
-6. Submit a pull request
+4. Run tests: `cargo test`
+5. Commit your changes: `git commit -am "Make it do my new idea"`
+6. Push to your fork: `git push origin my-new-idea`
+7. Submit a pull request
 
 If you don't have or want a github account, I also accept patches at
 leo@gaspard.io .
