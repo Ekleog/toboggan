@@ -1,6 +1,7 @@
 New features
 ------------
 
+asker.sh:# TODO: Write a real GUI program, to allow more flexibility later on
 src/config.rs:// TODO: add syscall groups and add some default ones
 src/main.rs:            // TODO: Allow to answer something that will last for more than a single syscall
 src/posix.rs:    // TODO: Add an Ignore target
@@ -15,6 +16,8 @@ src/config.rs:    // TODO: Handle multiple hierarchical config files
 UI improvements
 ---------------
 
+README.md:TODO: Explain it better
+README.md:TODO: Write installation documentation and how to run tests
 src/config.rs:    // TODO: cleanly display error
 src/main.rs:    // TODO: gracefully fail
 src/main.rs:    let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error

@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO: Write a real GUI program, to allow more flexibility later on
+
 if zenity --question --text "$1" --ok-label "Allow" --cancel-label "Kill"; then
     echo '{ "decision": "allow" }'
 else

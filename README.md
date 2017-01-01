@@ -44,7 +44,7 @@ process:
 
 1. Fork
 2. Create a work branch: `git checkout -b my-new-idea`
-3. Regenerate TODO-list: `./make-todo.sh`
+3. Regenerate todo-list: `./make-todo.sh`
 4. Run tests: `cargo test`
 5. Commit your changes: `git commit -am "Make it do my new idea"`
 6. Push to your fork: `git push origin my-new-idea`
