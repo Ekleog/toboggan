@@ -28,6 +28,7 @@ use syscalls::Syscall;
 
 // TODO: add syscall groups and add some default ones
 // (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
+#[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub policy: Filter,
     pub filters: HashMap<Syscall, Filter>,
@@ -117,7 +118,64 @@ pub fn load_file(f: &str) -> Result<Config, LoadError> {
 
     // TODO: cleanly display error
     let config: Config = serde_json::from_str(&s)?;
-    println!("=====\nfilter:\n{}\n=====", serde_json::to_string_pretty(&config)?);
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use syscalls::Syscall;
+    use filter::Filter;
+    use serde_json;
+
+    fn example_simple_config() -> Config {
+        let mut filters = HashMap::new();
+        filters.insert(Syscall::open, Filter::Allow);
+        Config {
+            policy: Filter::Kill,
+            filters: filters,
+        }
+    }
+
+    fn example_config() -> Config {
+        let mut filters = HashMap::new();
+        filters.insert(Syscall::getdents, Filter::Allow);
+        filters.insert(Syscall::stat, Filter::Allow);
+        filters.insert(Syscall::write, Filter::Kill);
+        filters.insert(Syscall::open,
+            Filter::PathIn(String::from("/home"),
+                Box::new(Filter::Allow),
+                Box::new(Filter::Log(Box::new(Filter::Kill)))
+            )
+        );
+        Config {
+            policy: Filter::Ask,
+            filters: filters,
+        }
+    }
+
+    #[test]
+    fn serialize_config() {
+        assert_eq!(serde_json::to_string_pretty(&example_simple_config()).unwrap(), r#"{
+  "policy": "kill",
+  "filters": {
+    "open": "allow"
+  }
+}"#);
+    }
+
+    #[test]
+    fn deserialize_config() {
+        assert_eq!(
+            serde_json::from_str::<Config>(&serde_json::to_string_pretty(&example_config()).unwrap()).unwrap(),
+            example_config()
+        );
+    }
+
+    #[test]
+    fn config_from_file() {
+        assert_eq!(load_file("tests/example_config.json").unwrap(), example_config());
+    }
 }

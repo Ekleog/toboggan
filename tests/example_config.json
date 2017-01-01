@@ -1,0 +1,16 @@
+{
+  "policy": "ask",
+  "filters": {
+    "getdents": "allow",
+    "stat": "allow",
+    "write": "kill",
+    "open": {
+      "test": "path in /home",
+      "true": "allow",
+      "false": {
+        "do": "log syscall",
+        "then": "kill"
+      }
+    }
+  }
+}
