@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::path::PathBuf;
 
 use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde_json;
@@ -111,13 +112,66 @@ impl From<serde_json::Error> for LoadError {
     }
 }
 
+// TODO: Test it
+fn relocate_wrt_conffile(f: &PathBuf, c: Filter) -> Filter {
+    match c {
+        Filter::Allow => Filter::Allow,
+        Filter::Kill  => Filter::Kill,
+        Filter::Ask   => Filter::Ask,
+
+        Filter::Eval(s)      => Filter::Eval(String::from(f.join(s).to_str().unwrap())), // TODO: handle error case
+        Filter::Log(t)       => Filter::Log(Box::new(relocate_wrt_conffile(f, *t))),
+        Filter::LogStr(s, t) => Filter::LogStr(s, Box::new(relocate_wrt_conffile(f, *t))),
+
+        Filter::ArgEq(a, x, jt, jf) =>
+            Filter::ArgEq(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                Box::new(relocate_wrt_conffile(f, *jf))),
+
+        Filter::ArgLeq(a, x, jt, jf) =>
+            Filter::ArgLeq(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                 Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::ArgLe(a, x, jt, jf) =>
+            Filter::ArgLe(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::ArgGeq(a, x, jt, jf) =>
+            Filter::ArgGeq(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                 Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::ArgGe(a, x, jt, jf) =>
+            Filter::ArgGe(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                Box::new(relocate_wrt_conffile(f, *jf))),
+
+        Filter::ArgHasBits(a, x, jt, jf) =>
+            Filter::ArgHasBits(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                     Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::ArgHasNoBits(a, x, jt, jf) =>
+            Filter::ArgHasNoBits(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                       Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::ArgInBits(a, x, jt, jf) =>
+            Filter::ArgInBits(a, x, Box::new(relocate_wrt_conffile(f, *jt)),
+                                    Box::new(relocate_wrt_conffile(f, *jf))),
+
+        Filter::PathIn(s, jt, jf) =>
+            Filter::PathIn(s, Box::new(relocate_wrt_conffile(f, *jt)),
+                              Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::PathEq(s, jt, jf) =>
+            Filter::PathEq(s, Box::new(relocate_wrt_conffile(f, *jt)),
+                              Box::new(relocate_wrt_conffile(f, *jf))),
+    }
+}
+
 pub fn load_file(f: &str) -> Result<Config, LoadError> {
-    let mut f = File::open(f)?;
+    // TODO: Handle multiple hierarchical config files
+    let mut f = PathBuf::from(f);
+    let mut file = File::open(&f)?;
     let mut s = String::new();
-    f.read_to_string(&mut s)?;
+    file.read_to_string(&mut s)?;
 
     // TODO: cleanly display error
-    let config: Config = serde_json::from_str(&s)?;
+    let mut config: Config = serde_json::from_str(&s)?;
+
+    f.pop();
+    config.policy = relocate_wrt_conffile(&f, config.policy);
+    config.filters = config.filters.into_iter().map(|(k, v)| (k, relocate_wrt_conffile(&f, v))).collect();
 
     Ok(config)
 }

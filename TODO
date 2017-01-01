@@ -9,6 +9,7 @@ src/posix.rs:        // TODO: manage multiprocess
 src/posix.rs:    // TODO: allow to block environment passing?
 src/seccomp.rs:    // TODO: also handle non-x64 syscalls
 src/posix.rs:    // TODO: Split in path and realpath
+src/config.rs:    // TODO: Handle multiple hierarchical config files
 
 
 UI improvements
@@ -20,11 +21,13 @@ src/main.rs:    let config = config::load_file(config_file).unwrap(); // TODO: G
 src/posix.rs:            // TODO: do not panic in release builds
 src/posix.rs:            panic!("Unable to getregs: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
 src/posix.rs:        // TODO: cleanly display error
+src/config.rs:        Filter::Eval(s)      => Filter::Eval(String::from(f.join(s).to_str().unwrap())), // TODO: handle error case
 
 
 Testing
 -------
 
+src/config.rs:// TODO: Test it
 src/main.rs:// TODO: find a way to test
 src/posix.rs:    // TODO: find a way to test exec
 src/posix.rs:    // TODO: find a way to test ptracehim
