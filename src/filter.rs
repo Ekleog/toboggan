@@ -379,6 +379,7 @@ mod tests {
     use super::*;
     use posix;
     use syscalls::Syscall;
+    use serde_json;
 
     #[test]
     fn action_to_filter_result() {
@@ -422,6 +423,17 @@ mod tests {
                     )),
                     Box::new(Filter::Allow)
                 ))
+            ))
+        )
+    }
+
+    fn other_filter() -> Filter {
+        Filter::ArgEq(0, 1,
+            Box::new(Filter::ArgLeq(2, 3, Box::new(Filter::Allow), Box::new(Filter::Kill))),
+            Box::new(Filter::PathEq(
+                String::from("/var/run"),
+                Box::new(Filter::Allow),
+                Box::new(Filter::Kill)
             ))
         )
     }
@@ -496,5 +508,79 @@ mod tests {
                    FilterResult::Ask);
 
         assert_eq!(eval(&complex_filter(), &sys), FilterResult::Allow);
+    }
+
+    #[test]
+    fn serialize_filter() {
+        assert_eq!(serde_json::to_string_pretty(&complex_filter()).unwrap(),
+            r#"{
+  "do": "log syscall",
+  "then": {
+    "test": "path in /usr/share",
+    "true": {
+      "do": "log message",
+      "message": "In aliquam aliquet tortor ac viverra.",
+      "then": {
+        "test": "arg[3] >= 42",
+        "true": "ask",
+        "false": {
+          "test": "arg[2] has no bits 1337",
+          "true": {
+            "test": "arg[2] in bits 1337",
+            "true": {
+              "do": "log message",
+              "message": "arg[2] == 0",
+              "then": "ask"
+            },
+            "false": "kill"
+          },
+          "false": "allow"
+        }
+      }
+    },
+    "false": {
+      "test": "arg[2] has bits 1337",
+      "true": {
+        "test": "arg[3] < 42",
+        "true": {
+          "do": "eval",
+          "script": "/boot/whatisthisdoinghere.pl"
+        },
+        "false": {
+          "test": "arg[3] > 42",
+          "true": "kill",
+          "false": "allow"
+        }
+      },
+      "false": "allow"
+    }
+  }
+}"#);
+
+        assert_eq!(serde_json::to_string_pretty(&other_filter()).unwrap(), r#"{
+  "test": "arg[0] == 1",
+  "true": {
+    "test": "arg[2] <= 3",
+    "true": "allow",
+    "false": "kill"
+  },
+  "false": {
+    "test": "path == /var/run",
+    "true": "allow",
+    "false": "kill"
+  }
+}"#);
+    }
+
+    #[test]
+    fn deserialize_filter() {
+        assert_eq!(
+            serde_json::from_str::<Filter>(&serde_json::to_string(&complex_filter()).unwrap()).unwrap(),
+            complex_filter()
+        );
+        assert_eq!(
+            serde_json::from_str::<Filter>(&serde_json::to_string(&other_filter()).unwrap()).unwrap(),
+            other_filter()
+        );
     }
 }
