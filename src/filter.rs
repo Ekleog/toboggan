@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016  Leo Gaspard
+ * Copyright (C) 2016-2017  Leo Gaspard
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ pub enum Filter {
     PathEq(String, Box<Filter>, Box<Filter>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FilterResult {
     Allow,
     Kill,
@@ -371,5 +371,130 @@ impl de::Visitor for FilterVisitor {
 impl Deserialize for Filter {
     fn deserialize<D: Deserializer>(d: &mut D) -> Result<Filter, D::Error> {
         d.deserialize(FilterVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use posix;
+    use syscalls::Syscall;
+
+    #[test]
+    fn action_to_filter_result() {
+        assert_eq!(FilterResult::from(posix::Action::Allow), FilterResult::Allow);
+        assert_eq!(FilterResult::from(posix::Action::Kill) , FilterResult::Kill);
+    }
+
+    fn complex_filter() -> Filter {
+        Filter::Log(
+            Box::new(Filter::PathIn(
+                String::from("/usr/share"),
+                Box::new(Filter::LogStr(
+                    String::from("In aliquam aliquet tortor ac viverra."),
+                    Box::new(Filter::ArgGeq(
+                        3, 42,
+                        Box::new(Filter::Ask),
+                        Box::new(Filter::ArgHasNoBits(
+                            2, 1337,
+                            Box::new(Filter::ArgInBits(
+                                2, 1337,
+                                Box::new(Filter::LogStr(
+                                    String::from("arg[2] == 0"),
+                                    Box::new(Filter::Ask)
+                                )),
+                                Box::new(Filter::Kill)
+                            )),
+                            Box::new(Filter::Allow)
+                        ))
+                    ))
+                )),
+                Box::new(Filter::ArgHasBits(
+                    2, 1337,
+                    Box::new(Filter::ArgLe(
+                        3, 42,
+                        Box::new(Filter::Eval(String::from("/boot/whatisthisdoinghere.pl"))),
+                        Box::new(Filter::ArgGe(
+                            3, 42,
+                            Box::new(Filter::Kill),
+                            Box::new(Filter::Allow)
+                        ))
+                    )),
+                    Box::new(Filter::Allow)
+                ))
+            ))
+        )
+    }
+
+    fn example_syscall() -> posix::SyscallInfo {
+        posix::SyscallInfo {
+            syscall: Syscall::open,
+            args: [5, 4, 3, 2, 1, 0],
+            path: String::from("/usr/share"),
+        }
+    }
+
+    #[test]
+    fn evaluate_filters() {
+        let sys = example_syscall();
+
+        assert_eq!(eval(&Filter::Allow, &sys), FilterResult::Allow);
+        assert_eq!(eval(&Filter::Kill, &sys), FilterResult::Kill);
+        assert_eq!(eval(&Filter::Ask, &sys), FilterResult::Ask);
+
+        assert_eq!(eval(&Filter::Eval(String::from("tests/allow.sh")), &sys), FilterResult::Allow);
+        assert_eq!(eval(&Filter::Eval(String::from("tests/kill.sh")), &sys), FilterResult::Kill);
+        assert_eq!(eval(&Filter::Log(Box::new(Filter::Allow)), &sys), FilterResult::Allow);
+        assert_eq!(eval(&Filter::LogStr(String::new(), Box::new(Filter::Ask)), &sys), FilterResult::Ask);
+
+        assert_eq!(eval(&Filter::ArgEq(0, 5, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgEq(0, 4, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+
+        assert_eq!(eval(&Filter::ArgLeq(1, 6, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgLeq(1, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::ArgLe(2, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::ArgLe(2, 5, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgGeq(3, 2, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgGeq(3, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::ArgGe(4, 0, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgGe(4, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+
+        assert_eq!(eval(&Filter::ArgHasBits(0, 1, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgHasBits(0, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::ArgHasNoBits(0, 2, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgHasNoBits(0, 3, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::ArgInBits(0, 13, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::ArgInBits(0, 4, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+
+        assert_eq!(eval(&Filter::PathIn(String::from("/usr"),
+                            Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+        assert_eq!(eval(&Filter::PathIn(String::from("/usr/share/foo"),
+                            Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::PathEq(String::from("/usr"),
+                            Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Kill);
+        assert_eq!(eval(&Filter::PathEq(String::from("/usr/share"),
+                            Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
+                   FilterResult::Ask);
+
+        assert_eq!(eval(&complex_filter(), &sys), FilterResult::Allow);
     }
 }
