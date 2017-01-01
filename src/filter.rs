@@ -52,6 +52,9 @@ pub enum Filter {
     // Path
     PathIn(String, Box<Filter>, Box<Filter>),
     PathEq(String, Box<Filter>, Box<Filter>),
+
+    RealPathIn(String, Box<Filter>, Box<Filter>),
+    RealPathEq(String, Box<Filter>, Box<Filter>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -137,6 +140,15 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> FilterResult {
             if sys.path == *s { eval(&*jt, sys) }
             else              { eval(&*jf, sys) }
         }
+
+        Filter::RealPathIn(ref s, ref jt, ref jf) => {
+            if sys.realpath.starts_with(s) { eval(&*jt, sys) }
+            else                           { eval(&*jf, sys) }
+        }
+        Filter::RealPathEq(ref s, ref jt, ref jf) => {
+            if sys.realpath == *s { eval(&*jt, sys) }
+            else                  { eval(&*jf, sys) }
+        }
     }
 }
 
@@ -189,6 +201,9 @@ impl Serialize for Filter {
             // Path
             PathIn(ref p, ref jt, ref jf) => serialize_test(s, &format!("path in {}", p), jt, jf),
             PathEq(ref p, ref jt, ref jf) => serialize_test(s, &format!("path == {}", p), jt, jf),
+
+            RealPathIn(ref p, ref jt, ref jf) => serialize_test(s, &format!("realpath in {}", p), jt, jf),
+            RealPathEq(ref p, ref jt, ref jf) => serialize_test(s, &format!("realpath == {}", p), jt, jf),
         }
     }
 }
@@ -216,6 +231,9 @@ enum FilterTest {
 
     PathIn(String),
     PathEq(String),
+
+    RealPathIn(String),
+    RealPathEq(String),
 }
 
 fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
@@ -227,9 +245,9 @@ fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
             (?P<val>[1-9][0-9]*)$                                         # value, integer
         ").unwrap();
         static ref PATH_RE: Regex = Regex::new(r"(?x)
-            ^path\s+         # 'path'
-            (?P<op>in|==)\s+ # operator
-            (?P<path>.*)$    # path
+            ^(?P<var>path|realpath)\s+ # 'path'
+            (?P<op>in|==)\s+           # operator
+            (?P<path>.*)$              # path
         ").unwrap();
     }
     if let Some(c) = ARG_RE.captures(&test) {
@@ -251,10 +269,20 @@ fn parse_test<E: Error>(test: String) -> Result<FilterTest, E> {
         }
     } else if let Some(c) = PATH_RE.captures(&test) {
         let path = c.name("path").unwrap();
-        match c.name("op").unwrap() {
-            "in" => Ok(FilterTest::PathIn(String::from(path))),
-            "==" => Ok(FilterTest::PathEq(String::from(path))),
-            op   => Err(E::invalid_value(&format!("Unknown path operator: {}", op))),
+        match c.name("var").unwrap() {
+            "path" =>
+                match c.name("op").unwrap() {
+                    "in" => Ok(FilterTest::PathIn(String::from(path))),
+                    "==" => Ok(FilterTest::PathEq(String::from(path))),
+                    op   => Err(E::invalid_value(&format!("Unknown path operator: {}", op))),
+                },
+            "realpath" =>
+                match c.name("op").unwrap() {
+                    "in" => Ok(FilterTest::RealPathIn(String::from(path))),
+                    "==" => Ok(FilterTest::RealPathEq(String::from(path))),
+                    op   => Err(E::invalid_value(&format!("Unknown path operator: {}", op))),
+                },
+            var => Err(E::invalid_value(&format!("Unknown path variable: {}", var))),
         }
     } else {
         Err(E::invalid_value(&format!("Invalid test: '{}'", test)))
@@ -361,6 +389,9 @@ impl de::Visitor for FilterVisitor {
 
                 FilterTest::PathIn(s) => Filter::PathIn(s, jt, jf),
                 FilterTest::PathEq(s) => Filter::PathEq(s, jt, jf),
+
+                FilterTest::RealPathIn(s) => Filter::RealPathIn(s, jt, jf),
+                FilterTest::RealPathEq(s) => Filter::RealPathEq(s, jt, jf),
             })
         } else {
             return Err(M::Error::missing_field("Filter is missing both 'do' and 'test'"));
@@ -442,7 +473,8 @@ mod tests {
         posix::SyscallInfo {
             syscall: Syscall::open,
             args: [5, 4, 3, 2, 1, 0],
-            path: String::from("/usr/share"),
+            path: String::from("/home/mallory/hahaha"),
+            realpath: String::from("/usr/share"),
         }
     }
 
@@ -494,16 +526,16 @@ mod tests {
         assert_eq!(eval(&Filter::ArgInBits(0, 4, Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
                    FilterResult::Kill);
 
-        assert_eq!(eval(&Filter::PathIn(String::from("/usr"),
+        assert_eq!(eval(&Filter::PathIn(String::from("/home/mallory"),
                             Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
                    FilterResult::Ask);
-        assert_eq!(eval(&Filter::PathIn(String::from("/usr/share/foo"),
+        assert_eq!(eval(&Filter::PathIn(String::from("/home/mallory/hahaha/haha"),
                             Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
                    FilterResult::Kill);
-        assert_eq!(eval(&Filter::PathEq(String::from("/usr"),
+        assert_eq!(eval(&Filter::PathEq(String::from("/home/mallory"),
                             Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
                    FilterResult::Kill);
-        assert_eq!(eval(&Filter::PathEq(String::from("/usr/share"),
+        assert_eq!(eval(&Filter::PathEq(String::from("/home/mallory/hahaha"),
                             Box::new(Filter::Ask), Box::new(Filter::Kill)), &sys),
                    FilterResult::Ask);
 

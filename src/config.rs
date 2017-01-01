@@ -182,6 +182,13 @@ fn relocate_wrt_conffile(f: &PathBuf, c: Filter) -> Filter {
         Filter::PathEq(s, jt, jf) =>
             Filter::PathEq(s, Box::new(relocate_wrt_conffile(f, *jt)),
                               Box::new(relocate_wrt_conffile(f, *jf))),
+
+        Filter::RealPathIn(s, jt, jf) =>
+            Filter::RealPathIn(s, Box::new(relocate_wrt_conffile(f, *jt)),
+                              Box::new(relocate_wrt_conffile(f, *jf))),
+        Filter::RealPathEq(s, jt, jf) =>
+            Filter::RealPathEq(s, Box::new(relocate_wrt_conffile(f, *jt)),
+                              Box::new(relocate_wrt_conffile(f, *jf))),
     }
 }
 

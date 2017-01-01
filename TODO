@@ -8,7 +8,6 @@ src/posix.rs:    // TODO: Make sure forks are ptraced
 src/posix.rs:        // TODO: manage multiprocess
 src/posix.rs:    // TODO: allow to block environment passing?
 src/seccomp.rs:    // TODO: also handle non-x64 syscalls
-src/posix.rs:    // TODO: Split in path and realpath
 src/config.rs:    // TODO: Handle multiple hierarchical config files
 src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
 

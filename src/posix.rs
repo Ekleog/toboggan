@@ -241,21 +241,22 @@ pub struct SyscallInfo {
     pub syscall: Syscall,
     pub args: [u64; 6],
     pub path: String,
-    // TODO: Split in path and realpath
+    pub realpath: String,
 }
 
 // TODO: remove when auto-derive is ready?
 impl Serialize for SyscallInfo {
     fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
         serialize_map!(s, {
-            "syscall" => self.syscall,
-            "args"    => &self.args,
-            "path"    => &self.path
+            "syscall"  => self.syscall,
+            "args"     => &self.args,
+            "path"     => &self.path,
+            "realpath" => &self.realpath
         })
     }
 }
 
-fn canonicalize(p: String) -> path::PathBuf {
+fn canonicalize(p: &str) -> path::PathBuf {
     let mut path = path::PathBuf::new();
     path.push(p);
 
@@ -306,12 +307,13 @@ impl SyscallInfo {
             Syscall::chown    => read_str(pid, args[1], PATH_MAX as usize)?,
             _                 => String::new(),
         };
-        match canonicalize(path).into_os_string().into_string() {
-            Ok(path) =>
+        match canonicalize(&path).into_os_string().into_string() {
+            Ok(realpath) =>
                 Ok(SyscallInfo {
                     syscall: syscall,
                     args: args,
                     path: path,
+                    realpath: realpath,
                 }),
             Err(path) => Err(PosixError::InvalidUtf8(path)),
         }
@@ -528,6 +530,7 @@ mod tests {
             syscall: Syscall::read,
             args: [0, 5, 32, 79, 12, 51],
             path: String::from("/foo/bar/baz"),
+            realpath: String::from("/quux/baz"),
         }).unwrap(), r#"{
   "syscall": "read",
   "args": [
@@ -538,14 +541,15 @@ mod tests {
     12,
     51
   ],
-  "path": "/foo/bar/baz"
+  "path": "/foo/bar/baz",
+  "realpath": "/quux/baz"
 }"#);
     }
 
     #[test]
     fn test_canonicalize() {
         // TODO: This assumes /var/run is a symlink to /run, find a way to make this env-agnostic
-        assert_eq!(canonicalize(String::from("/var/run/thisdoesnotexist/bar/baz")),
+        assert_eq!(canonicalize("/var/run/thisdoesnotexist/bar/baz"),
                    path::PathBuf::from("/run/thisdoesnotexist/bar/baz"));
     }
 
