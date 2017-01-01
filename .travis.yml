@@ -4,3 +4,10 @@ rust:
   - stable
   - beta
   - nightly
+after_success: |
+  sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev &&
+  wget https://github.com/SimonKagstrom/kcov/archive/v32.tar.gz &&
+  tar xzf v32.tar.gz && mkdir kcov-32/build && cd kcov-32/build &&
+  cmake .. && make && sudo make install &&
+  cd ../.. &&
+  kcov --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo,syscalls.rs --verify target/kcov target/debug/toboggan-*

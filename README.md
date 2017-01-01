@@ -1,4 +1,4 @@
-toboggan &emsp; [![Build Status](https://travis-ci.org/Ekleog/toboggan.svg?branch=master)](https://travis-ci.org/Ekleog/toboggan)
+toboggan &emsp; [![Build Status](https://travis-ci.org/Ekleog/toboggan.svg?branch=master)](https://travis-ci.org/Ekleog/toboggan) [![Coverage Status](https://coveralls.io/repos/github/Ekleog/toboggan/badge.svg?branch=master)](https://coveralls.io/github/Ekleog/toboggan?branch=master)
 ========
 
 `toboggan` is a sandboxing program that asks the user when the sandboxed program
