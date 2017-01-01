@@ -142,6 +142,7 @@ impl Deserialize for Action {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum PtraceStop {
     Exec,
     Exit,
@@ -474,6 +475,36 @@ pub fn call_script(s: &str, sys: &SyscallInfo) -> Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{waitforcont, sendcont, waitit, PtraceStop, continueit};
+    use libc;
+    use std::{thread, time};
 
     // TODO: find a way to test exec
+
+    #[test]
+    fn wait_and_cont() {
+        let oldset = blockusr1();
+
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            thread::sleep(time::Duration::from_millis(100));
+            waitforcont();
+            unsafe { libc::exit(0) }
+        }
+        sendcont(pid);
+        assert_eq!(waitit(pid), PtraceStop::Exit);
+        continueit(pid);
+
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            waitforcont();
+            unsafe { libc::exit(0) }
+        }
+        thread::sleep(time::Duration::from_millis(100));
+        sendcont(pid);
+        assert_eq!(waitit(pid), PtraceStop::Exit);
+        continueit(pid);
+
+        setsigmask(oldset);
+    }
 }
