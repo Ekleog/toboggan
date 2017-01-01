@@ -1,0 +1,51 @@
+New features
+------------
+
+src/config.rs:// TODO: add syscall groups and add some default ones
+src/main.rs:            // TODO: Allow to answer something that will last for more than a single syscall
+src/posix.rs:    // TODO: Add an Ignore target
+src/posix.rs:    // TODO: Make sure forks are ptraced
+src/posix.rs:        // TODO: manage multiprocess
+src/posix.rs:    // TODO: allow to block environment passing?
+src/seccomp.rs:    // TODO: also handle non-x64 syscalls
+
+
+UI improvements
+---------------
+
+src/config.rs:    // TODO: cleanly display error
+src/main.rs:    // TODO: gracefully fail
+src/main.rs:    let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error
+src/posix.rs:            // TODO: do not panic in release builds
+src/posix.rs:            panic!("Unable to getregs: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
+src/posix.rs:        // TODO: cleanly display error
+
+
+Testing
+-------
+
+src/main.rs:// TODO: find a way to test
+src/posix.rs:    // TODO: find a way to test exec
+src/seccomp.rs:// TODO: unit test
+
+
+Cleanup
+-------
+
+src/filter.rs:        // TODO: clean this up, it's becoming a mess
+
+
+Awaiting upstream
+-----------------
+
+src/filter.rs:#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
+src/main.rs:// TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
+src/posix.rs:// TODO: replace with auto-derive when it lands on stable
+src/posix.rs:#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
+src/posix.rs:// TODO: remove when auto-derive is ready?
+src/posix.rs:// TODO: Remove when auto-derive lands on stable
+
+
+Unclassified
+------------
+

@@ -99,3 +99,5 @@ pub fn install_filter(allowed: &[Syscall], killing: &[Syscall]) -> Result<(), &'
         }
     }
 }
+
+// TODO: unit test

@@ -470,3 +470,10 @@ pub fn call_script(s: &str, sys: &SyscallInfo) -> Action {
     let res: ScriptResult = res.unwrap();
     res.decision
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // TODO: find a way to test exec
+}

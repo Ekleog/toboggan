@@ -43,8 +43,8 @@ If you feel like writing some code for `toboggan`, you can follow the following
 process:
 
 1. Fork
-2. Clone your fork
-3. Create a work branch: `git checkout -b my-new-idea`
+2. Create a work branch: `git checkout -b my-new-idea`
+3. Regenerate TODO-list: `./make-todo.sh`
 4. Commit your changes: `git commit -am "Make it do my new idea"`
 5. Push to your fork: `git push origin my-new-idea`
 6. Submit a pull request

@@ -35,8 +35,6 @@ use std::collections::HashMap;
 use filter::Filter;
 use syscalls::Syscall;
 
-// TODO: Add readme
-// TODO: Add unit tests
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
 
 fn spawn_child(prog: &str, args: &[&str], sigset: libc::sigset_t, allowed: &[Syscall], killing: &[Syscall]) {
@@ -118,3 +116,5 @@ fn main() {
         ptrace_child(pid, filters, policy, &asker_script);
     }
 }
+
+// TODO: find a way to test
