@@ -1,4 +1,4 @@
-toboggan
+toboggan &emsp; [![Build Status](https://travis-ci.org/Ekleog/toboggan.svg?branch=master)](https://travis-ci.org/Ekleog/toboggan)
 ========
 
 `toboggan` is a sandboxing program that asks the user when the sandboxed program
