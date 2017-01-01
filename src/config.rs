@@ -25,20 +25,53 @@ use serde::{de, Deserialize, Deserializer, Error, Serialize, Serializer};
 use serde_json;
 
 use filter::Filter;
+use syscalls;
 use syscalls::Syscall;
 
-// TODO: add syscall groups and add some default ones
-// (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
+// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub policy: Filter,
+    pub groups: HashMap<String, Vec<Syscall>>, // optional field. TODO: check name doesn't overlap with syscalls
     pub filters: HashMap<Syscall, Filter>,
+}
+
+// TODO: add relevant tests
+impl Config {
+    fn compute_filters(filters: HashMap<String, Filter>,
+                       groups: &HashMap<String, Vec<Syscall>>) -> HashMap<Syscall, Filter> {
+        let mut res = HashMap::new();
+        for (k, v) in filters.into_iter() {
+            if let Some(k) = syscalls::from_str(&k) {
+                res.insert(k, v);
+            } else if let Some(keys) = groups.get(&k) {
+                for k in keys {
+                    res.insert(*k, v.clone());
+                }
+            } else {
+                panic!("Unknown group or syscall name: {}", k);
+                // TODO: Handle this cleanly
+            }
+        }
+        res
+    }
+
+    pub fn new(policy: Filter,
+               groups: HashMap<String, Vec<Syscall>>,
+               filters: HashMap<String, Filter>) -> Config {
+        Config {
+            policy: policy,
+            filters: Self::compute_filters(filters, &groups),
+            groups: groups,
+        }
+    }
 }
 
 impl Serialize for Config {
     fn serialize<S: Serializer>(&self, s: &mut S) -> Result<(), S::Error> {
         serialize_map!(s, {
             "policy"  => &self.policy,
+            "groups"  => &self.groups,
             "filters" => &self.filters
         })
     }
@@ -51,23 +84,15 @@ impl de::Visitor for ConfigVisitor {
 
     fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<Config, M::Error> {
         let mut policy = None;
+        let mut groups = None;
         let mut filters = None;
 
         while let Some(k) = v.visit_key::<String>()? {
             match k.as_ref() {
-                "policy" => {
-                    if policy.is_some() {
-                        return Err(M::Error::duplicate_field("policy"));
-                    }
-                    policy = Some(v.visit_value()?);
-                },
-                "filters" => {
-                    if filters.is_some() {
-                        return Err(M::Error::duplicate_field("filters"));
-                    }
-                    filters = Some(v.visit_value()?);
-                },
-                _ => return Err(M::Error::unknown_field(&k)),
+                "policy"  => get_if_unset!(v, policy, "policy"   ; Filter),
+                "groups"  => get_if_unset!(v, groups, "groups"   ; HashMap<String, Vec<Syscall>>),
+                "filters" => get_if_unset!(v, filters, "filters" ; HashMap<String, Filter>),
+                _         => return Err(M::Error::unknown_field(&k)),
             }
         }
         v.end()?;
@@ -80,11 +105,12 @@ impl de::Visitor for ConfigVisitor {
             Some(f) => f,
             None    => return Err(M::Error::missing_field("filters")),
         };
+        let groups = match groups {
+            Some(g) => g,
+            None    => HashMap::new(),
+        };
 
-        Ok(Config {
-            policy: policy,
-            filters: filters,
-        })
+        Ok(Config::new(policy, groups, filters))
     }
 }
 
@@ -180,40 +206,47 @@ pub fn load_file(f: &str) -> Result<Config, LoadError> {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use syscalls::Syscall;
     use filter::Filter;
+    use syscalls::Syscall;
     use serde_json;
 
     fn example_simple_config() -> Config {
         let mut filters = HashMap::new();
-        filters.insert(Syscall::open, Filter::Allow);
-        Config {
-            policy: Filter::Kill,
-            filters: filters,
-        }
+        filters.insert(String::from("open"), Filter::Allow);
+
+        let mut groups = HashMap::new();
+        groups.insert(String::from("testgroup"), vec![Syscall::prlimit64, Syscall::readlinkat]);
+
+        Config::new(Filter::Kill, groups, filters)
     }
 
     fn example_config() -> Config {
         let mut filters = HashMap::new();
-        filters.insert(Syscall::getdents, Filter::Allow);
-        filters.insert(Syscall::stat, Filter::Allow);
-        filters.insert(Syscall::write, Filter::Kill);
-        filters.insert(Syscall::open,
+        filters.insert(String::from("allowed"), Filter::Allow);
+        filters.insert(String::from("write"), Filter::Kill);
+        filters.insert(String::from("open"),
             Filter::PathIn(String::from("/home"),
                 Box::new(Filter::Allow),
                 Box::new(Filter::Log(Box::new(Filter::Kill)))
             )
         );
-        Config {
-            policy: Filter::Ask,
-            filters: filters,
-        }
+
+        let mut groups = HashMap::new();
+        groups.insert(String::from("allowed"), vec![Syscall::getdents, Syscall::stat]);
+
+        Config::new(Filter::Ask, groups, filters)
     }
 
     #[test]
     fn serialize_config() {
         assert_eq!(serde_json::to_string_pretty(&example_simple_config()).unwrap(), r#"{
   "policy": "kill",
+  "groups": {
+    "testgroup": [
+      "prlimit64",
+      "readlinkat"
+    ]
+  },
   "filters": {
     "open": "allow"
   }

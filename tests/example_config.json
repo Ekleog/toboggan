@@ -1,8 +1,10 @@
 {
   "policy": "ask",
+  "groups": {
+    "allowed": ["getdents", "stat"]
+  },
   "filters": {
-    "getdents": "allow",
-    "stat": "allow",
+    "allowed": "allow",
     "write": "kill",
     "open": {
       "test": "path in /home",

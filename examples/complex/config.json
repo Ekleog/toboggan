@@ -3,7 +3,11 @@
     "do": "log syscall",
     "then": "allow"
   },
+  "groups": {
+    "allowed": ["exit", "read", "brk", "mmap", "close", "fstat", "mprotect", "write"]
+  },
   "filters": {
+    "allowed": "allow",
     "open": {
       "do": "log syscall",
       "then": {
@@ -24,19 +28,11 @@
         "false": "allow"
       }
     },
-    "exit": "allow",
-    "read": "allow",
     "ioctl": "kill",
-    "brk": "allow",
-    "mmap": "allow",
-    "close": "allow",
-    "fstat": "allow",
     "getdents": {
       "do": "log syscall",
       "then": "kill"
     },
-    "mprotect": "allow",
-    "write": "allow",
     "prctl": {
       "do": "eval",
       "script": "./echo.py"
