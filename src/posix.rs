@@ -100,10 +100,10 @@ pub fn ptraceme() {
     waitforcont();
 }
 
-fn waitit() -> PtraceStop {
+fn waitit(pid: pid_t) -> PtraceStop {
     unsafe {
         let mut status: c_int = mem::uninitialized();
-        wait(&mut status);
+        waitpid(pid, &mut status, 0);
         stop_type(status)
     }
 }
@@ -171,7 +171,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
     }
 
     // Wait for the process to receive the SIGSTOP
-    waitit();
+    waitit(pid);
 
     // Set ptrace options
     // TODO: Make sure forks are ptraced
@@ -186,7 +186,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
 
     // Wait for execve to succeed
     loop {
-        let status = waitit();
+        let status = waitit(pid);
         match status {
             // Skip execve's
             PtraceStop::Seccomp => {
@@ -211,7 +211,7 @@ pub fn ptracehim<F>(pid: pid_t, cb: F) where F: Fn(SyscallInfo) -> Action {
     // And monitor the exec'ed process
     loop {
         // TODO: manage multiprocess
-        let status = waitit();
+        let status = waitit(pid);
         match status {
             PtraceStop::Seccomp => {
                 if let Ok(syscall) = syscall_info(pid) {
