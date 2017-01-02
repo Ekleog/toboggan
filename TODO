@@ -4,7 +4,6 @@ New features
 asker.sh:# TODO: Write a real GUI program, to allow more flexibility later on
 src/asker.rs:    // TODO: Write GUI, replacing current asker.sh
 src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
-src/config.rs:        // TODO: compute groups cross-configs
 src/config.rs:            // TODO: Handle case of syscall defined in multiple overlapping groups
 src/main.rs:    /* TODO: adapt to multiple config files scenario
 src/main.rs:        // TODO: Allow to answer something that will last for more than a single syscall
@@ -22,7 +21,6 @@ UI improvements
 README.md:TODO: Explain it better
 README.md:TODO: Write installation documentation and how to run tests
 src/config.rs:        Filter::Eval(s)      => Filter::Eval(String::from(f.join(s).to_str().unwrap())), // TODO: handle error case
-src/config.rs:    pub groups: HashMap<String, Vec<Syscall>>, // optional field. TODO: check name doesn't overlap with syscalls
 src/config.rs:                // TODO: Handle this cleanly
 src/main.rs:    let config = vec![config::load_file(config_file).unwrap()]; // TODO: Gracefully show error
 src/main.rs:    // TODO: gracefully fail

@@ -107,7 +107,7 @@ fn main() {
     let args = matches.values_of("PROG").unwrap().collect::<Vec<&str>>();
     let prog = args[0];
 
-    let config = vec![config::load_file(config_file).unwrap()]; // TODO: Gracefully show error
+    let config = vec![config::load_file(config_file, &Vec::new()).unwrap()]; // TODO: Gracefully show error
     // TODO: load multiple config files
 
     let allowed = Vec::new();

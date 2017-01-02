@@ -39,9 +39,10 @@ pub struct Config {
 // TODO: add relevant tests
 impl Config {
     fn compute_filters(filters: HashMap<String, Filter>,
-                       groups: &HashMap<String, Vec<Syscall>>) -> HashMap<Syscall, Filter> {
+                       groups: &HashMap<String, Vec<Syscall>>,
+                       oldconfigs: &Vec<Config>) -> HashMap<Syscall, Filter> {
         let mut res = HashMap::new();
-        for (k, v) in filters.into_iter() {
+        'nextfilter: for (k, v) in filters.into_iter() {
             // TODO: Handle case of syscall defined in multiple overlapping groups
             if let Some(k) = syscalls::from_str(&k) {
                 res.insert(k, v);
@@ -50,6 +51,14 @@ impl Config {
                     res.insert(*k, v.clone());
                 }
             } else {
+                for c in oldconfigs.iter() {
+                    if let Some(keys) = c.groups.get(&k) {
+                        for k in keys {
+                            res.insert(*k, v.clone());
+                        }
+                        continue 'nextfilter;
+                    }
+                }
                 panic!("Unknown group or syscall name: {}", k);
                 // TODO: Handle this cleanly
             }
@@ -57,14 +66,11 @@ impl Config {
         res
     }
 
-    pub fn new(policy: Filter,
-               groups: HashMap<String, Vec<Syscall>>,
-               filters: HashMap<String, Filter>) -> Config {
-        // TODO: compute groups cross-configs
+    fn new(config: ParsedConfig, oldconfigs: &Vec<Config>) -> Config {
         Config {
-            policy: policy,
-            filters: Self::compute_filters(filters, &groups),
-            groups: groups,
+            policy: config.policy,
+            filters: Self::compute_filters(config.filters, &config.groups, oldconfigs),
+            groups: config.groups,
         }
     }
 }
@@ -79,12 +85,18 @@ impl Serialize for Config {
     }
 }
 
+struct ParsedConfig {
+    pub policy: Filter,
+    pub groups: HashMap<String, Vec<Syscall>>,
+    pub filters: HashMap<String, Filter>,
+}
+
 struct ConfigVisitor;
 
 impl de::Visitor for ConfigVisitor {
-    type Value = Config;
+    type Value = ParsedConfig;
 
-    fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<Config, M::Error> {
+    fn visit_map<M: de::MapVisitor>(&mut self, mut v: M) -> Result<ParsedConfig, M::Error> {
         let mut policy = None;
         let mut groups = None;
         let mut filters = None;
@@ -112,12 +124,16 @@ impl de::Visitor for ConfigVisitor {
             None    => HashMap::new(),
         };
 
-        Ok(Config::new(policy, groups, filters))
+        Ok(ParsedConfig {
+            policy: policy,
+            groups: groups,
+            filters: filters,
+        })
     }
 }
 
-impl Deserialize for Config {
-    fn deserialize<D: Deserializer>(d: &mut D) -> Result<Config, D::Error> {
+impl Deserialize for ParsedConfig {
+    fn deserialize<D: Deserializer>(d: &mut D) -> Result<ParsedConfig, D::Error> {
         d.deserialize(ConfigVisitor)
     }
 }
@@ -194,24 +210,25 @@ fn relocate_wrt_conffile(f: &PathBuf, c: Filter) -> Filter {
     }
 }
 
-pub fn load_file(f: &str) -> Result<Config, LoadError> {
+pub fn load_file(f: &str, oldconfigs: &Vec<Config>) -> Result<Config, LoadError> {
     let mut f = PathBuf::from(f);
     let mut file = File::open(&f)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
 
-    let mut config: Config = serde_json::from_str(&s)?;
+    let mut config: ParsedConfig = serde_json::from_str(&s)?;
 
     f.pop();
     config.policy = relocate_wrt_conffile(&f, config.policy);
     config.filters = config.filters.into_iter().map(|(k, v)| (k, relocate_wrt_conffile(&f, v))).collect();
 
-    Ok(config)
+    Ok(Config::new(config, oldconfigs))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::ParsedConfig;
     use std::collections::HashMap;
     use filter::Filter;
     use syscalls::Syscall;
@@ -224,7 +241,8 @@ mod tests {
         let mut groups = HashMap::new();
         groups.insert(String::from("testgroup"), vec![Syscall::prlimit64, Syscall::readlinkat]);
 
-        Config::new(Filter::Kill, groups, filters)
+        Config::new(ParsedConfig { policy: Filter::Kill, groups: groups, filters: filters },
+                    &Vec::new())
     }
 
     fn example_config() -> Config {
@@ -241,7 +259,8 @@ mod tests {
         let mut groups = HashMap::new();
         groups.insert(String::from("allowed"), vec![Syscall::getdents, Syscall::stat]);
 
-        Config::new(Filter::Ask, groups, filters)
+        Config::new(ParsedConfig { policy: Filter::Ask, groups: groups, filters: filters },
+                    &Vec::new())
     }
 
     #[test]
@@ -263,13 +282,15 @@ mod tests {
     #[test]
     fn deserialize_config() {
         assert_eq!(
-            serde_json::from_str::<Config>(&serde_json::to_string_pretty(&example_config()).unwrap()).unwrap(),
+            Config::new(serde_json::from_str::<ParsedConfig>(
+                &serde_json::to_string_pretty(&example_config()).unwrap()
+            ).unwrap(), &Vec::new()),
             example_config()
         );
     }
 
     #[test]
     fn config_from_file() {
-        assert_eq!(load_file("tests/example_config.json").unwrap(), example_config());
+        assert_eq!(load_file("tests/example_config.json", &Vec::new()).unwrap(), example_config());
     }
 }
