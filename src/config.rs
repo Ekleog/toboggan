@@ -42,6 +42,7 @@ impl Config {
                        groups: &HashMap<String, Vec<Syscall>>) -> HashMap<Syscall, Filter> {
         let mut res = HashMap::new();
         for (k, v) in filters.into_iter() {
+            // TODO: Handle case of syscall defined in multiple overlapping groups
             if let Some(k) = syscalls::from_str(&k) {
                 res.insert(k, v);
             } else if let Some(keys) = groups.get(&k) {
@@ -59,6 +60,7 @@ impl Config {
     pub fn new(policy: Filter,
                groups: HashMap<String, Vec<Syscall>>,
                filters: HashMap<String, Filter>) -> Config {
+        // TODO: compute groups cross-configs
         Config {
             policy: policy,
             filters: Self::compute_filters(filters, &groups),
@@ -193,13 +195,11 @@ fn relocate_wrt_conffile(f: &PathBuf, c: Filter) -> Filter {
 }
 
 pub fn load_file(f: &str) -> Result<Config, LoadError> {
-    // TODO: Handle multiple hierarchical config files
     let mut f = PathBuf::from(f);
     let mut file = File::open(&f)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
 
-    // TODO: cleanly display error
     let mut config: Config = serde_json::from_str(&s)?;
 
     f.pop();

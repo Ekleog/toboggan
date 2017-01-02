@@ -2,14 +2,17 @@ New features
 ------------
 
 asker.sh:# TODO: Write a real GUI program, to allow more flexibility later on
-src/main.rs:            // TODO: Allow to answer something that will last for more than a single syscall
+src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
+src/config.rs:        // TODO: compute groups cross-configs
+src/config.rs:            // TODO: Handle case of syscall defined in multiple overlapping groups
+src/main.rs:    /* TODO: adapt to multiple config files scenario
+src/main.rs:        // TODO: Allow to answer something that will last for more than a single syscall
+src/main.rs:    // TODO: load multiple config files
 src/posix.rs:    // TODO: Add an Ignore target
+src/posix.rs:    // TODO: allow to block environment passing?
 src/posix.rs:    // TODO: Make sure forks are ptraced
 src/posix.rs:        // TODO: manage multiprocess
-src/posix.rs:    // TODO: allow to block environment passing?
 src/seccomp.rs:    // TODO: also handle non-x64 syscalls
-src/config.rs:    // TODO: Handle multiple hierarchical config files
-src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
 
 
 UI improvements
@@ -17,20 +20,20 @@ UI improvements
 
 README.md:TODO: Explain it better
 README.md:TODO: Write installation documentation and how to run tests
+src/config.rs:        Filter::Eval(s)      => Filter::Eval(String::from(f.join(s).to_str().unwrap())), // TODO: handle error case
 src/config.rs:    pub groups: HashMap<String, Vec<Syscall>>, // optional field. TODO: check name doesn't overlap with syscalls
-src/config.rs:    // TODO: cleanly display error
+src/config.rs:                // TODO: Handle this cleanly
+src/main.rs:    let config = vec![config::load_file(config_file).unwrap()]; // TODO: Gracefully show error
 src/main.rs:    // TODO: gracefully fail
-src/main.rs:    let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error
-src/posix.rs:            // TODO: do not panic in release builds
 src/posix.rs:            panic!("Unable to getregs: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
 src/posix.rs:        // TODO: cleanly display error
-src/config.rs:        Filter::Eval(s)      => Filter::Eval(String::from(f.join(s).to_str().unwrap())), // TODO: handle error case
-src/config.rs:                // TODO: Handle this cleanly
+src/posix.rs:            // TODO: do not panic in release builds
 
 
 Testing
 -------
 
+src/config.rs:// TODO: add relevant tests
 src/config.rs:// TODO: Test it
 src/main.rs:// TODO: find a way to test
 src/posix.rs:    // TODO: find a way to test exec
@@ -38,7 +41,6 @@ src/posix.rs:    // TODO: find a way to test ptracehim
 src/posix.rs:    // TODO: Find a way to test SyscallInfo::new, syscall_info, read_str
 src/posix.rs:        // TODO: This assumes /var/run is a symlink to /run, find a way to make this env-agnostic
 src/seccomp.rs:    // TODO: test allowed and asking paths
-src/config.rs:// TODO: add relevant tests
 
 
 Cleanup
@@ -52,10 +54,10 @@ Awaiting upstream
 
 src/filter.rs:#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
 src/main.rs:// TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
-src/posix.rs:// TODO: replace with auto-derive when it lands on stable
 src/posix.rs:#[allow(unused_imports)] // Rustc seems to wrongly detect Error as unused. TODO: remove when fixed?
 src/posix.rs:// TODO: remove when auto-derive is ready?
 src/posix.rs:// TODO: Remove when auto-derive lands on stable
+src/posix.rs:// TODO: replace with auto-derive when it lands on stable
 
 
 Unclassified

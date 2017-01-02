@@ -30,9 +30,8 @@ mod seccomp;
 mod syscalls;
 
 use std::{env, fs};
-use std::collections::HashMap;
 
-use filter::Filter;
+use config::Config;
 use syscalls::Syscall;
 
 // TODO: check things still work (or not) after switch to kernel 4.8 (cf. man 2 ptrace)
@@ -50,13 +49,27 @@ fn spawn_child(prog: &str, args: &[&str], sigset: libc::sigset_t, allowed: &[Sys
     unreachable!();
 }
 
-fn ptrace_child(pid: libc::pid_t, filters: HashMap<Syscall, Filter>, policy: Filter, ask: &str) {
+fn result_to_action(res: filter::FilterResult, s: posix::SyscallInfo, ask: &str) -> posix::Action {
+    match res {
+        filter::FilterResult::Allow => posix::Action::Allow,
+        filter::FilterResult::Kill  => posix::Action::Kill,
+        // TODO: Allow to answer something that will last for more than a single syscall
+        filter::FilterResult::Ask   => posix::call_script(ask, &s),
+    }
+}
+
+fn ptrace_child(pid: libc::pid_t, configs: Vec<Config>, ask: &str) {
     posix::ptracehim(pid, |s| {
-        match filter::eval(&filters.get(&s.syscall).unwrap_or(&policy), &s) {
-            filter::FilterResult::Allow => posix::Action::Allow,
-            filter::FilterResult::Kill  => posix::Action::Kill,
-            // TODO: Allow to answer something that will last for more than a single syscall
-            filter::FilterResult::Ask   => posix::call_script(ask, &s),
+        let mut res = None;
+        for c in configs.iter() {
+            if let Some(f) = c.filters.get(&s.syscall) {
+                res = Some(filter::eval(f, &s));
+            }
+        }
+        if let Some(res) = res {
+            result_to_action(res, s, ask)
+        } else {
+            result_to_action(filter::eval(&configs[configs.len()-1].policy, &s), s, ask)
         }
     });
 }
@@ -94,18 +107,21 @@ fn main() {
     let args = matches.values_of("PROG").unwrap().collect::<Vec<&str>>();
     let prog = args[0];
 
-    let config = config::load_file(config_file).unwrap(); // TODO: Gracefully show error
-    let policy = config.policy;
-    let filters = config.filters;
+    let config = vec![config::load_file(config_file).unwrap()]; // TODO: Gracefully show error
+    // TODO: load multiple config files
 
-    let allowed: Vec<Syscall> = filters.iter()
-                                       .filter(|&(_, v)| *v == Filter::Allow)
-                                       .map(|(k, _)| k.clone())
-                                       .collect();
-    let killing: Vec<Syscall> = filters.iter()
-                                       .filter(|&(_, v)| *v == Filter::Kill)
-                                       .map(|(k, _)| k.clone())
-                                       .collect();
+    let allowed = Vec::new();
+    let killing = Vec::new();
+    /* TODO: adapt to multiple config files scenario
+    let allowed: Vec<Syscall> = config.filters.iter()
+                                              .filter(|&(_, v)| *v == Filter::Allow)
+                                              .map(|(k, _)| k.clone())
+                                              .collect();
+    let killing: Vec<Syscall> = config.filters.iter()
+                                              .filter(|&(_, v)| *v == Filter::Kill)
+                                              .map(|(k, _)| k.clone())
+                                              .collect();
+    */
 
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
@@ -113,7 +129,7 @@ fn main() {
         spawn_child(prog, &args, sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
-        ptrace_child(pid, filters, policy, &asker_script);
+        ptrace_child(pid, config, &asker_script);
     }
 }
 
