@@ -58,19 +58,18 @@ fn result_to_action(res: filter::FilterResult, s: posix::SyscallInfo, ask: &str)
     }
 }
 
+fn relevant_filter<'a>(configs: &'a Vec<Config>, s: Syscall) -> &'a filter::Filter {
+    for c in configs.iter().rev() {
+        if let Some(f) = c.filters.get(&s) {
+            return f;
+        }
+    }
+    &configs[configs.len() - 1].policy
+}
+
 fn ptrace_child(pid: libc::pid_t, configs: Vec<Config>, ask: &str) {
     posix::ptracehim(pid, |s| {
-        let mut res = None;
-        for c in configs.iter() {
-            if let Some(f) = c.filters.get(&s.syscall) {
-                res = Some(filter::eval(f, &s));
-            }
-        }
-        if let Some(res) = res {
-            result_to_action(res, s, ask)
-        } else {
-            result_to_action(filter::eval(&configs[configs.len()-1].policy, &s), s, ask)
-        }
+        result_to_action(filter::eval(relevant_filter(&configs, s.syscall), &s), s, ask)
     });
 }
 
@@ -107,21 +106,18 @@ fn main() {
     let args = matches.values_of("PROG").unwrap().collect::<Vec<&str>>();
     let prog = args[0];
 
-    let config = vec![config::load_file(config_file, &Vec::new()).unwrap()]; // TODO: Gracefully show error
+    let configs = vec![config::load_file(config_file, &Vec::new()).unwrap()]; // TODO: Gracefully show error
     // TODO: load multiple config files
 
-    let allowed = Vec::new();
-    let killing = Vec::new();
-    /* TODO: adapt to multiple config files scenario
-    let allowed: Vec<Syscall> = config.filters.iter()
-                                              .filter(|&(_, v)| *v == Filter::Allow)
-                                              .map(|(k, _)| k.clone())
-                                              .collect();
-    let killing: Vec<Syscall> = config.filters.iter()
-                                              .filter(|&(_, v)| *v == Filter::Kill)
-                                              .map(|(k, _)| k.clone())
-                                              .collect();
-    */
+    let mut allowed = Vec::new();
+    let mut killing = Vec::new();
+    for s in syscalls::LIST {
+        match relevant_filter(&configs, *s) {
+            &filter::Filter::Allow => { allowed.push(*s) },
+            &filter::Filter::Kill  => { killing.push(*s) },
+            _                      => (),
+        }
+    }
 
     let sigset = posix::blockusr1();
     let pid = unsafe { libc::fork() };
@@ -129,7 +125,7 @@ fn main() {
         spawn_child(prog, &args, sigset, &allowed, &killing);
     } else {
         posix::setsigmask(sigset);
-        ptrace_child(pid, config, &asker_script);
+        ptrace_child(pid, configs, &asker_script);
     }
 }
 
