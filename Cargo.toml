@@ -11,3 +11,11 @@ libc = "0.2.18"
 regex = "0.1"
 serde = "0.8.21"
 serde_json = "0.8.4"
+
+[[bin]]
+name = "toboggan"
+path = "src/main.rs"
+
+[[bin]]
+name = "toboggan-asker"
+path = "src/asker.rs"

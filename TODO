@@ -2,6 +2,7 @@ New features
 ------------
 
 asker.sh:# TODO: Write a real GUI program, to allow more flexibility later on
+src/asker.rs:    // TODO: Write GUI, replacing current asker.sh
 src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
 src/config.rs:        // TODO: compute groups cross-configs
 src/config.rs:            // TODO: Handle case of syscall defined in multiple overlapping groups
