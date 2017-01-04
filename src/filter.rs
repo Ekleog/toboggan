@@ -84,8 +84,8 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> FilterResult {
         Filter::Eval(ref s) => FilterResult::from(posix::call_script(s, sys)),
         Filter::Log(ref ff) => {
             println!(
-                "toboggan: {:?} [path = '{}'] ({}, {}, {}, {}, {}, {})",
-                sys.syscall, sys.path,
+                "toboggan: {:?} [path = '{}', realpath = '{}'] ({}, {}, {}, {}, {}, {})",
+                sys.syscall, sys.path, sys.realpath,
                 sys.args[0], sys.args[1], sys.args[2], sys.args[3], sys.args[4], sys.args[5]
             );
             eval(&*ff, sys)
@@ -132,6 +132,7 @@ pub fn eval(f: &Filter, sys: &posix::SyscallInfo) -> FilterResult {
         }
 
         // Path
+        // TODO: check /foobar is not considered in /foo
         Filter::PathIn(ref s, ref jt, ref jf) => {
             if sys.path.starts_with(s) { eval(&*jt, sys) }
             else                       { eval(&*jf, sys) }

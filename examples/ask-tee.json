@@ -1,0 +1,28 @@
+{
+  "policy": "ask",
+  "groups": {
+    "allowed": ["exit", "read", "brk", "mmap", "close", "fstat", "mprotect", "write",
+              "arch_prctl", "set_tid_address", "set_robust_list", "rt_sigaction",
+              "rt_sigprocmask", "getrlimit", "prctl", "fadvise64", "exit_group"],
+    "autoload": ["open", "stat", "access"]
+  },
+  "filters": {
+    "allowed": "allow",
+    "autoload": {
+      "do": "log syscall",
+      "then": {
+        "test": "realpath in /nix/store",
+        "true": "allow",
+        "false": {
+          "test": "realpath in /etc/ld-nix.so.preload/",
+          "true": "allow",
+          "false": {
+            "test": "realpath in /run/opengl-driver-32/lib",
+            "true": "allow",
+            "false": "ask"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,17 +1,24 @@
+Blocking bugs
+-------------
+
+src/config.rs:    pub groups: HashMap<String, Vec<Syscall>>, // optional field. TODO: check name doesn't overlap with syscalls
+src/config.rs:            // TODO: Handle case of syscall defined in multiple overlapping groups
+src/filter.rs:        // TODO: check /foobar is not considered in /foo
+src/main.rs:        // TODO: Allow to answer something that will last for more than a single syscall
+src/posix.rs:// TODO: also handle files like "test" (neither starting with "." nor with "/")
+src/posix.rs:    // TODO: Make sure forks are ptraced
+src/posix.rs:        // TODO: manage multiprocess
+
+
 New features
 ------------
 
 asker.sh:# TODO: Write a real GUI program, to allow more flexibility later on
 src/asker.rs:    // TODO: Write GUI, replacing current asker.sh
-src/config.rs:    pub groups: HashMap<String, Vec<Syscall>>, // optional field. TODO: check name doesn't overlap with syscalls
 src/config.rs:// TODO: add some default groups (cf. https://github.com/systemd/systemd/blob/master/src/shared/seccomp-util.c#L221 )
-src/config.rs:            // TODO: Handle case of syscall defined in multiple overlapping groups
-src/main.rs:        // TODO: Allow to answer something that will last for more than a single syscall
 src/main.rs:    // TODO: load multiple config files
 src/posix.rs:    // TODO: Add an Ignore target
 src/posix.rs:    // TODO: allow to block environment passing?
-src/posix.rs:    // TODO: Make sure forks are ptraced
-src/posix.rs:        // TODO: manage multiprocess
 src/seccomp.rs:    // TODO: also handle non-x64 syscalls
 
 

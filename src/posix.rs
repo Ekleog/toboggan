@@ -256,6 +256,7 @@ impl Serialize for SyscallInfo {
     }
 }
 
+// TODO: also handle files like "test" (neither starting with "." nor with "/")
 fn canonicalize(p: &str) -> path::PathBuf {
     let mut path = path::PathBuf::new();
     path.push(p);
