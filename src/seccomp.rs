@@ -18,10 +18,6 @@
 use libc::*;
 use syscalls::Syscall;
 
-const PR_GET_SECCOMP: c_int = 21;
-const PR_SET_SECCOMP: c_int = 22;
-const PR_SET_NO_NEW_PRIVS: c_int = 38;
-
 const SECCOMP_MODE_FILTER: c_int = 2;
 
 const BPF_RET: u16 = 0x06;
