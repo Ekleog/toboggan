@@ -308,6 +308,9 @@ impl SyscallInfo {
             Syscall::chown    => read_str(pid, args[1], PATH_MAX as usize)?,
             _                 => String::new(),
         };
+        // TODO: compute realpath correctly for *at syscalls, and check all syscalls in @file are covered
+        // TODO: add IP/port for @network-io syscalls
+        // TODO: reduce information leakage in @default (uname, sysinfo...)
         match canonicalize(&path).into_os_string().into_string() {
             Ok(realpath) =>
                 Ok(SyscallInfo {

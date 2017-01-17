@@ -97,17 +97,20 @@ fn main() {
         (about: "Sandboxes applications in a user-friendly way")
         (setting: clap::AppSettings::TrailingVarArg)
         (setting: clap::AppSettings::UnifiedHelpMessage)
-        (usage: "toboggan -c <CONFIG> [OPTIONS] -- <PROG>...")
-        (@arg CONFIG: -c --config <CONFIG> * display_order(0) "Sets the config file")
+        (usage: "toboggan -c <CONFIG>... [OPTIONS] -- <PROG>...")
+        (@arg CONFIG: -c --config <CONFIG> * ... number_of_values(1) "Sets the config file")
         (@arg ASKER: -a --asker default_value(&asker_script) "Asker script")
         (@arg PROG: * ... +allow_hyphen_values "Program to sandbox")
     ).get_matches();
-    let config_file = matches.value_of("CONFIG").unwrap();
+    let config_files = matches.values_of("CONFIG").unwrap();
     let args = matches.values_of("PROG").unwrap().collect::<Vec<&str>>();
     let prog = args[0];
 
-    let configs = vec![config::load_file(config_file, &Vec::new()).unwrap()]; // TODO: Gracefully show error
-    // TODO: load multiple config files
+    let mut configs = Vec::new();
+    for f in config_files {
+        let new_conf = config::load_file(f, &configs).unwrap(); // TODO: Gracefully show error
+        configs.push(new_conf);
+    }
 
     let mut allowed = Vec::new();
     let mut killing = Vec::new();
