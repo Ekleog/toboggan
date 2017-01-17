@@ -1,0 +1,100 @@
+{
+    "policy": "ask",
+    "groups": {
+        "@default": [
+
+            "brk", "clock_getres", "clock_gettime", "clock_nanosleep", "execve",
+            "exit", "exit_group", "geteuid", "getegid", "getgid", "getpgrp", "getpid",
+            "getppid", "getrlimit", "gettimeofday", "getuid", "mprotect",
+            "nanosleep", "pause", "rt_sigaction", "rt_sigprocmask",
+            "rt_sigreturn", "sysinfo", "time", "uname"
+
+        ],
+        "@basic-io": [
+            "close", "dup2", "dup3", "dup", "lseek", "pread64", "preadv",
+            "pwrite64", "pwritev", "read", "readv", "write", "writev"
+        ],
+        "@clock": [
+            "adjtimex", "clock_adjtime", "clock_settime", "settimeofday"
+        ],
+        "@cpu-emulation": [
+            "modify_ldt"
+        ],
+        "@debug": [
+            "lookup_dcookie", "perf_event_open", "process_vm_readv",
+            "process_vm_writev", "ptrace"
+        ],
+        "@file-system": [
+            "close", "fallocate", "fchdir", "fchmod", "fcntl", "fgetxattr",
+            "flistxattr", "fsetxattr", "fstat", "fstatfs", "ftruncate",
+            "getcwd", "getdents64", "getdents", "inotify_init1",
+            "inotify_rm_watch", "ioctl", "mmap"
+        ],
+        "@file": [
+            "access", "chdir", "chmod", "creat", "faccessat", "fchmodat",
+            "futimesat", "getxattr", "inotify_add_watch", "lgetxattr", "link",
+            "linkat", "listxattr", "llistxattr", "lremovexattr", "lsetxattr",
+            "lstat", "mkdir", "mkdirat", "mknod", "mknodat", "newfstatat",
+            "open", "openat", "readlink", "readlinkat", "removexattr", "rename",
+            "renameat2", "renameat", "rmdir", "setxattr", "stat", "statfs",
+            "symlink", "symlinkat", "truncate", "unlink", "unlinkat",
+            "utimensat", "utimes"
+        ],
+        "@io-event": [
+            "epoll_create1", "epoll_create", "epoll_ctl", "epoll_ctl_old",
+            "epoll_pwait", "epoll_wait", "epoll_wait_old", "eventfd2",
+            "eventfd", "poll", "ppoll", "pselect6", "select"
+        ],
+        "@ipc": [
+            "memfd_create", "mq_getsetattr", "mq_notify", "mq_open",
+            "mq_timedreceive", "mq_timedsend", "mq_unlink", "msgctl", "msgget",
+            "msgrcv", "msgsnd", "pipe2", "pipe", "process_vm_readv",
+            "process_vm_writev", "semctl", "semget", "semop", "semtimedop",
+            "shmat", "shmctl", "shmdt", "shmget"
+        ],
+        "@keyring": [
+            "add_key", "keyctl", "request_key"
+        ],
+        "@module": [
+            "delete_module", "finit_module", "init_module"
+        ],
+        "@mount": [
+            "chroot", "mount", "pivot_root", "umount2"
+        ],
+        "@network-io": [
+            "accept4", "accept", "bind", "connect", "getpeername",
+            "getsockname", "getsockopt", "listen", "recvfrom", "recvmmsg",
+            "recvmsg", "sendmmsg", "sendmsg", "sendto", "setsockopt",
+            "shutdown", "socket", "socketpair"
+        ],
+        "@obsolete": [
+            "_sysctl", "afs_syscall", "create_module", "get_kernel_syms",
+            "getpmsg", "putpmsg", "query_module", "security", "sysfs",
+            "tuxcall", "uselib", "ustat", "vserver"
+        ],
+        "@privileged": [
+            "acct", "bpf", "capset", "chown", "chroot", "fchown", "fchownat",
+            "kexec_file_load", "kexec_load", "lchown", "nfsservctl",
+            "pivot_root", "quotactl", "reboot", "setdomainname", "setfsuid",
+            "setgroups", "sethostname", "setresuid", "setreuid", "setuid",
+            "swapoff", "swapon", "_sysctl", "vhangup"
+        ],
+        "@process": [
+            "arch_prctl", "clone", "execveat", "fork", "kill", "prctl", "setns",
+            "tgkill", "tkill", "unshare", "vfork", "wait4"
+        ],
+        "@raw-io": [
+            "ioperm", "iopl"
+        ],
+        "@resources": [
+            "sched_setparam", "sched_setscheduler", "sched_setaffinity",
+            "setpriority", "setrlimit", "set_mempolicy", "migrate_pages",
+            "move_pages", "mbind", "sched_setattr", "prlimit64"
+        ]
+    },
+    "filters": {
+        "@default": "allow",
+        "@basic-io": "allow",
+        "@file-system": "allow"
+    }
+}
