@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::{ffi, fs, mem, path, str};
+use std::{ffi, fs, mem::{self, MaybeUninit}, path, str};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -52,19 +52,19 @@ extern {
 
 fn usr1set() -> sigset_t {
     unsafe {
-        let mut set: sigset_t = mem::uninitialized();
-        sigemptyset(&mut set);
-        sigaddset(&mut set, SIGUSR1);
-        set
+        let mut set: MaybeUninit<sigset_t> = MaybeUninit::uninit();
+        sigemptyset(set.as_mut_ptr());
+        sigaddset(set.as_mut_ptr(), SIGUSR1);
+        set.assume_init()
     }
 }
 
 pub fn blockusr1() -> sigset_t {
     let set = usr1set();
     unsafe {
-        let mut oldset: sigset_t = mem::uninitialized();
-        sigprocmask(SIG_BLOCK, &set, &mut oldset);
-        oldset
+        let mut oldset: MaybeUninit<sigset_t> = MaybeUninit::uninit();
+        sigprocmask(SIG_BLOCK, &set, oldset.as_mut_ptr());
+        oldset.assume_init()
     }
 }
 
@@ -77,9 +77,9 @@ pub fn setsigmask(m: sigset_t) {
 fn waitforcont() {
     let set = usr1set();
     unsafe {
-        let mut sig: c_int = mem::uninitialized();
+        let mut sig: MaybeUninit<c_int> = MaybeUninit::uninit();
         blockusr1(); // This should already have been done, but safe function...
-        sigwait(&set, &mut sig);
+        sigwait(&set, sig.as_mut_ptr());
     }
 }
 
@@ -102,9 +102,9 @@ pub fn ptraceme() {
 
 pub fn waitit(pid: pid_t) -> PtraceStop {
     unsafe {
-        let mut status: c_int = mem::uninitialized();
-        waitpid(pid, &mut status, 0);
-        stop_type(status)
+        let mut status: MaybeUninit<c_int> = MaybeUninit::uninit();
+        waitpid(pid, status.as_mut_ptr(), 0);
+        stop_type(status.assume_init())
     }
 }
 
@@ -371,13 +371,13 @@ impl From<str::Utf8Error> for PosixError {
 }
 
 fn syscall_info(pid: pid_t) -> Result<SyscallInfo, PosixError> {
-    let mut regs: user_regs;
-    unsafe {
-        regs = mem::uninitialized();
-        if ptrace(PTRACE_GETREGS, pid, 0, &mut regs) != 0 {
+    let regs: user_regs = unsafe {
+        let mut regs = MaybeUninit::uninit();
+        if ptrace(PTRACE_GETREGS, pid, 0, regs.as_mut_ptr()) != 0 {
             panic!("Unable to getregs: {}", *__errno_location()); // TODO: Remove this and cleanly handle error
         }
-    }
+        regs.assume_init()
+    };
     if let Some(sysc) = syscalls::from(regs.orig_rax) {
         SyscallInfo::new(
             pid,
