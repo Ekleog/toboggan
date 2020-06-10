@@ -4,6 +4,11 @@ toboggan &emsp; [![Build Status](https://travis-ci.org/Ekleog/toboggan.svg?branc
 `toboggan` is a sandboxing program that asks the user when the sandboxed program
 tries to do something unexpected, allowing for incomplete policies.
 
+***Note: This project no longer works with recent Linux kernels. It should be
+possible to make it work again, but I do not have time for it right now. Feel
+free to try fixing the second src/seccomp.rs test, as it is probably where the
+issue is coming from; I'll be happy to accept any PR fixing it.***
+
 ***Note: This project currently works but is not polished at all. You may want
 to have a look at
 [Mbox](https://people.csail.mit.edu/nickolai/papers/kim-mbox.pdf) that appears,
