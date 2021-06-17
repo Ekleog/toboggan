@@ -42,8 +42,8 @@ doesn't just work as expected, please report it as a [GitHub
 issue](https://github.com/Ekleog/toboggan/issues/new).
 
 If you don't have a github account, you can also contact me by email at
-leo@gaspard.io or on IRC at freenode, chan
-[`#toboggan`](https://webchat.freenode.net/?channels=toboggan).
+leo@gaspard.io or on IRC at libera.chat, chan
+[`#toboggan`](https://kiwiirc.com/nextclient/irc.libera.chat/#kannader).
 
 
 Contribute
